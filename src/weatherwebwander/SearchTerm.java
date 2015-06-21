@@ -20,8 +20,8 @@ import java.util.logging.Logger;
  */
 public class SearchTerm {
     
-    //private String searchURLPart1 = "http://www.google.ie/search?q=";
-    private String searchURLPart1 = "http://duckduckgo.com/?q=";
+    private String searchURLPart1 = "http://www.google.ie/search?q=";
+    //private String searchURLPart1 = "http://duckduckgo.com/?q=";
     private String searchURLPart2 = "";//"&ia=answer";
     
     /*
@@ -33,8 +33,6 @@ public class SearchTerm {
     */
     private String []searchTermFiles = {
         "climate-change-terms.csv",
-        "climate-change-keywords-2-1.csv",
-        "climate-change-keywords-3.csv",
         "tulca-2015-keywords.csv"
     };
     private String [][]searchTerms;

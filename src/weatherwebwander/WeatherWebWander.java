@@ -27,6 +27,7 @@ public class WeatherWebWander extends Application {
         primaryStage.setScene(scene);
         //scene.getStylesheets().add("webviewsample/BrowserToolbar.css");        
         primaryStage.show();
+        primaryStage.setFullScreen(true);
     }
 
     /**

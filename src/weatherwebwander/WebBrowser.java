@@ -53,6 +53,9 @@ public class WebBrowser extends Region {
     private final int GOOD_PAGE_LOAD_WAIT = 14000;
     private final int PAGE_LOAD_MAX_WAIT = 20000;
     
+    private final int PAGE_SCROLL_PX = 1;
+    private final int PAGE_SCROLL_DELAY = 30;
+    
     private Timeline timeline;
      
     public WebBrowser() {
@@ -89,8 +92,26 @@ public class WebBrowser extends Region {
                     if( timeline != null ) {
                         timeline.stop();
                     }
+                    
                     consecutiveErrors = 0;
                     System.out.println("WebEngine LoadWorker: task completed");
+                    if( !broswerIsSearching ) {
+                        System.out.println("WebEngine: injecting webpage scroll javascript function");
+                        String content = 
+                                "var doPosMove = true; "
+                                + "function toPos(yPos){"
+                                + "window.scrollTo(0, yPos); "
+                                + "if(doPosMove){setTimeout(function() { toPos(yPos + "+PAGE_SCROLL_PX+"); }, "+PAGE_SCROLL_DELAY+");} "
+                                + "}"
+                                + "toPos(0);"
+                        ;
+                        // replace problematic characters
+                        content = content.replace("'", "\\'");
+                        content = content.replace(System.getProperty("line.separator"), "\\n");
+                        content = content.replace("\n", "\\n");
+                        content = content.replace("\r", "\\n");
+                        webEngine.executeScript(content);
+                    }
                     // wait now
                     Task task = new Task<Void>() {
                         @Override
@@ -170,6 +191,18 @@ public class WebBrowser extends Region {
                     }));
             timeline.play();
         } else {
+            // stop position mover
+            {
+            String content = 
+                    "function stopPos(){doPosMove=false;} stopPos();"
+            ;
+            // replace problematic characters
+            content = content.replace("'", "\\'");
+            content = content.replace(System.getProperty("line.separator"), "\\n");
+            content = content.replace("\n", "\\n");
+            content = content.replace("\r", "\\n");
+            webEngine.executeScript(content);
+            }
             int numTerms = getNumTermsInDoc();
             System.out.println("getting links");
             String []links;
@@ -207,12 +240,12 @@ public class WebBrowser extends Region {
         for( String link : uncleanedLinks ) {
             if( link.length() > searchUrlCode.length() ) {
                 //System.out.println("Link: "+link);
-                //String subStr = link.substring(0, searchUrlCode.length());
-                //if( subStr.equals(searchUrlCode) && !link.contains("webcache") ) {
-                    //String []parts = link.substring(searchUrlCode.length()).split("[&]");
-                    //links.add(parts[0]);
-                    links.add(link);
-                //}
+                String subStr = link.substring(0, searchUrlCode.length());
+                if( subStr.equals(searchUrlCode) && !link.contains("webcache") ) {
+                    String []parts = link.substring(searchUrlCode.length()).split("[&]");
+                    links.add(parts[0]);
+                    //links.add(link);
+                }
             }
         }
         String []linksArray = new String[links.size()];
@@ -228,18 +261,28 @@ public class WebBrowser extends Region {
             org.w3c.dom.Node node = nodeList.item(i);
             if (node.getNodeType() == org.w3c.dom.Node.ELEMENT_NODE) {
                 Element element = (Element)node;
-                if( element.getTagName().toLowerCase().equals("p") ) {
+                if( element.getTagName().toLowerCase().equals("p") 
+                        || element.getTagName().toLowerCase().equals("td")
+                        || element.getTagName().toLowerCase().equals("li")
+                        || element.getTagName().toLowerCase().equals("h1")
+                        || element.getTagName().toLowerCase().equals("h2")
+                        || element.getTagName().toLowerCase().equals("h3")
+                        ) {
                     NodeList childElements = element.getChildNodes();
                     //TEXT_NODE
                     for( int j = 0 ; j < childElements.getLength() ; j++ ) {
                         org.w3c.dom.Node childNode = childElements.item(j);
                         if (childNode.getNodeType() == org.w3c.dom.Node.TEXT_NODE) {
-                            org.w3c.dom.Text text = (org.w3c.dom.Text)childNode;
                             paragraphs.add(childNode.getNodeValue());
                         }
                     }
                 }
             }
+            /*
+            if (node.getNodeType() == org.w3c.dom.Node.TEXT_NODE) {
+                paragraphs.add(node.getNodeValue());
+            }
+                    */
         }
         int numWordsUsed = 0;
         if( paragraphs.size() > 0 ) {
