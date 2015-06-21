@@ -50,8 +50,8 @@ public class WebBrowser extends Region {
     private final int MAX_CONSECUTIVE_ERRORS = 10;
     private int consecutiveErrors = 0;
     
-    private final int GOOD_PAGE_LOAD_WAIT = 7000;
-    private final int PAGE_LOAD_MAX_WAIT = 10000;
+    private final int GOOD_PAGE_LOAD_WAIT = 14000;
+    private final int PAGE_LOAD_MAX_WAIT = 20000;
     
     private Timeline timeline;
      
