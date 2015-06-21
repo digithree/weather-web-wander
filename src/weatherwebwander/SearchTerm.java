@@ -34,7 +34,8 @@ public class SearchTerm {
     private String []searchTermFiles = {
         "climate-change-terms.csv",
         "climate-change-keywords-2-1.csv",
-        "climate-change-keywords-3.csv"
+        "climate-change-keywords-3.csv",
+        "tulca-2015-keywords.csv"
     };
     private String [][]searchTerms;
     
