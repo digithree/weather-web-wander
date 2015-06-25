@@ -76,6 +76,8 @@ public class WebBrowser extends Region {
             }
         }
         
+        //browser.setMaxHeight(Double.MAX_VALUE);
+        
         startPageLoad(true);
         
         getStyleClass().add("browser");
@@ -157,12 +159,12 @@ public class WebBrowser extends Region {
                         Platform.exit();
                     }
                     System.out.println("WebEngine LoadWorker: error");
-                    Platform.runLater(() -> {
+                    //Platform.runLater(() -> {
                         String searchTermString = searchTermEngine.generateRandomSearchURL();
                         System.out.println("searchTerm: "+searchTermString);
                         broswerIsSearching = true;
                         webEngine.load(searchTermString);
-                    });
+                    //});
                 }
             }
         });
