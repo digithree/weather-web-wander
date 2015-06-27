@@ -6,26 +6,15 @@
 
 package weatherwebwander;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javafx.application.Application;
-import javafx.embed.swing.SwingNode;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
-import javafx.scene.Group;
+import javafx.geometry.Orientation;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
 import javafx.scene.control.SplitPane;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.AnchorPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Pane;
-import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 import javafx.stage.Stage;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
 
 /**
  *
@@ -35,60 +24,65 @@ public class WeatherWebWander extends Application {
     
     private Scene scene;
     
-    private GraphCanvas graphCanvas;
-    private boolean graphCanvasToggle;
+    private GraphCanvas forceDirectedGraphCanvas;
+    private GraphCanvas vennDiagramGraphCanvas;
     
     @Override
     public void start(Stage primaryStage) throws Exception {
-        SplitPane pane = new SplitPane();
-        //pane.setMaxHeight(Double.MAX_VALUE);
-        graphCanvas = new GraphCanvas();
+        SplitPane graphsSplitPane = new SplitPane();
+        graphsSplitPane.setOrientation(Orientation.VERTICAL);
+        
+        forceDirectedGraphCanvas = new ForceDirectedGraphCanvas();
         AnchorPane graphCanvasContainer = new AnchorPane();
-        AnchorPane.setTopAnchor(graphCanvas, 0.0);
-        AnchorPane.setBottomAnchor(graphCanvas, 0.0);
-        AnchorPane.setLeftAnchor(graphCanvas, 0.0);
-        AnchorPane.setRightAnchor(graphCanvas, 0.0);
-        graphCanvasContainer.getChildren().add(graphCanvas);
+        AnchorPane.setTopAnchor(forceDirectedGraphCanvas, 0.0);
+        AnchorPane.setBottomAnchor(forceDirectedGraphCanvas, 0.0);
+        AnchorPane.setLeftAnchor(forceDirectedGraphCanvas, 0.0);
+        AnchorPane.setRightAnchor(forceDirectedGraphCanvas, 0.0);
+        graphCanvasContainer.getChildren().add(forceDirectedGraphCanvas);
         SplitPane.setResizableWithParent(graphCanvasContainer, true);
-        pane.getItems().addAll(graphCanvasContainer, new WebBrowser());
-        graphCanvas.widthProperty().bind(
+        forceDirectedGraphCanvas.widthProperty().bind(
                        graphCanvasContainer.widthProperty());
-        graphCanvas.heightProperty().bind(
+        forceDirectedGraphCanvas.heightProperty().bind(
                        graphCanvasContainer.heightProperty());
-        pane.setDividerPositions(0.5f,0.5f);
+        
         /*
-        graphCanvas.toBack();
-        Button button = new Button("Toggle Graph");
-        graphCanvasToggle = false;
-        button.setOnAction(new EventHandler<ActionEvent>() {
-            @Override
-            public void handle(ActionEvent event) {
-                if(graphCanvasToggle) {
-                    graphCanvas.toBack();
-                } else {
-                    graphCanvas.toFront();
-                }
-                graphCanvasToggle = !graphCanvasToggle;
-            }
-        });
+        vennDiagramGraphCanvas = new GraphCanvas();
+        AnchorPane vennGraphCanvasContainer = new AnchorPane();
+        AnchorPane.setTopAnchor(vennDiagramGraphCanvas, 0.0);
+        AnchorPane.setBottomAnchor(vennDiagramGraphCanvas, 0.0);
+        AnchorPane.setLeftAnchor(vennDiagramGraphCanvas, 0.0);
+        AnchorPane.setRightAnchor(vennDiagramGraphCanvas, 0.0);
+        vennGraphCanvasContainer.getChildren().add(vennDiagramGraphCanvas);
+        SplitPane.setResizableWithParent(vennGraphCanvasContainer, true);
+        vennDiagramGraphCanvas.widthProperty().bind(
+                       vennGraphCanvasContainer.widthProperty());
+        vennDiagramGraphCanvas.heightProperty().bind(
+                       vennGraphCanvasContainer.heightProperty());
         */
+        
+        TextFlow textFlow = new TextFlow();
+        //textFlow.setMinWidth(Float.MAX_VALUE);
+        textFlow.setMaxHeight(200);
+        textFlow.getChildren().add(new Text("Some kind of text."));
+        textFlow.getChildren().add(new Text("Some other kind of text."));
+        
         /*
-        AnchorPane anchorPane = new AnchorPane();
-        AnchorPane.setTopAnchor(pane,0.0);
-        AnchorPane.setBottomAnchor(pane,0.0);
-        AnchorPane.setLeftAnchor(pane,0.0);
-        AnchorPane.setRightAnchor(pane,0.0);
-        anchorPane.getChildren().add(pane);
+        graphsSplitPane.getItems().addAll(graphCanvasContainer, vennGraphCanvasContainer, textFlow);
+        graphsSplitPane.setDividerPositions(0.33f,0.33f,0.34f);
         */
-        /*
-        VBox vBox = new VBox();
-        vBox.setMaxHeight(Double.MAX_VALUE);
-        //vBox.getChildren().addAll(button,anchorPane);
-        vBox.getChildren().addAll(button,pane);
-        */
+        
+        graphsSplitPane.getItems().addAll(graphCanvasContainer, textFlow);
+        graphsSplitPane.setDividerPositions(0.66f,0.34f);
+        
+        // master split pane
+        SplitPane masterPane = new SplitPane();
+        masterPane.setOrientation(Orientation.HORIZONTAL);
+        masterPane.getItems().addAll(graphsSplitPane, new WebBrowser((ForceDirectedGraphCanvas)forceDirectedGraphCanvas));
+        masterPane.setDividerPositions(0.35f,0.65f);
+
         // create the scene
         primaryStage.setTitle("Web View");
-        scene = new Scene(pane,750,700, Color.web("#666970"));
+        scene = new Scene(masterPane,750,700, Color.web("#666970"));
         primaryStage.setScene(scene);
         //scene.getStylesheets().add("webviewsample/BrowserToolbar.css");        
         primaryStage.show();

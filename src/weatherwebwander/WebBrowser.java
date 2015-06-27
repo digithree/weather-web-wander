@@ -41,6 +41,8 @@ public class WebBrowser extends Region {
     private final WebView browser = new WebView();
     private final WebEngine webEngine = browser.getEngine();
     
+    private final ForceDirectedGraphCanvas graph;
+    
     private SearchTerm searchTermEngine;
     private boolean broswerIsSearching = true;
     
@@ -58,7 +60,8 @@ public class WebBrowser extends Region {
     
     private Timeline timeline;
      
-    public WebBrowser() {
+    public WebBrowser(ForceDirectedGraphCanvas graph) {
+        this.graph = graph;
         {
             try // set up blacklist
             {
@@ -121,9 +124,17 @@ public class WebBrowser extends Region {
                             // Now block the thread for a short time, but be sure
                             // to check the interrupted exception for cancellation!
                             Platform.runLater(() -> {
-                                int numTerms = getNumTermsInDoc();
+                                final int numTerms = getNumTermsInDoc();
+                                //Thread thread = new Thread(){
+                                    //public void run(){
+                                        graph.addNode(parentSearchHashCode, thisSearchHashCode,
+                                                broswerIsSearching ? 1 : numTerms);
+                                    //}
+                                //};
+                                //thread.start();
                                 if( numTerms > 0 ) {
                                     System.out.println("Num terms in paragraph text: "+numTerms);
+                                    
                                 } else {
                                     System.out.println("No terms used in paragraph");
                                 }
@@ -173,11 +184,15 @@ public class WebBrowser extends Region {
  
     }
     
+    int parentSearchHashCode;
+    int thisSearchHashCode;
     private void startPageLoad(boolean firstTime) {
         if( firstTime ) {
             // set up search term engine and load page
             searchTermEngine = new SearchTerm();
             String searchTermString = searchTermEngine.generateRandomSearchURL();
+            parentSearchHashCode = 0;
+            thisSearchHashCode = searchTermString.hashCode();
             System.out.println("searchTerm: "+searchTermString);
             broswerIsSearching = true;
             webEngine.load(searchTermString);
@@ -222,12 +237,16 @@ public class WebBrowser extends Region {
             if( links.length > 0 && !forceSearchAgain ) {
                 String chosenLink = links[(int)(Math.random()*(double)links.length)];
                 System.out.println("loading new page: "+chosenLink);
+                parentSearchHashCode = thisSearchHashCode;
+                thisSearchHashCode = chosenLink.hashCode();
                 broswerIsSearching = false;
                 webEngine.getLoadWorker().cancel();
                 webEngine.load(chosenLink);
             } else {
                 String searchTermString = searchTermEngine.generateRandomSearchURL();
                 System.out.println("searchTerm: "+searchTermString);
+                parentSearchHashCode = 0;
+                thisSearchHashCode = searchTermString.hashCode();
                 broswerIsSearching = true;
                 webEngine.getLoadWorker().cancel();
                 webEngine.load(searchTermString);

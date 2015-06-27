@@ -19,14 +19,28 @@ class GraphCanvas extends Canvas {
     public GraphCanvas() {
         super(200,200);
         // Redraw canvas when size changes.
-        widthProperty().addListener(evt -> draw());
-        heightProperty().addListener(evt -> draw());
+        widthProperty().addListener(evt -> doResize());
+        heightProperty().addListener(evt -> doResize());
     }
-
-    private void draw() {
+    
+    private void doResize() {
         double width = getWidth();
         double height = getHeight();
+        
+        extraResize();
+        
+        draw();
+    }
+    
+    protected void extraResize() {
+        
+    }
 
+    public void draw() {
+        // debug
+        double width = getWidth();
+        double height = getHeight();
+        
         GraphicsContext gc = getGraphicsContext2D();
         gc.clearRect(0, 0, width, height);
 
