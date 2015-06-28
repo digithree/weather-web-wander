@@ -6,10 +6,14 @@
 
 package weatherwebwander;
 
+import de.l3s.boilerpipe.BoilerpipeProcessingException;
+import de.l3s.boilerpipe.extractors.ArticleExtractor;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -26,6 +30,8 @@ import javafx.scene.Node;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import javafx.util.Duration;
@@ -43,6 +49,8 @@ public class WebBrowser extends Region {
     
     private final ForceDirectedGraphCanvas graph;
     
+    private final NaturalLanguageProcessing nlp;
+    
     private SearchTerm searchTermEngine;
     private boolean broswerIsSearching = true;
     
@@ -59,9 +67,12 @@ public class WebBrowser extends Region {
     private final int PAGE_SCROLL_DELAY = 30;
     
     private Timeline timeline;
+    
+    TextFlow textFlow;
      
-    public WebBrowser(ForceDirectedGraphCanvas graph) {
+    public WebBrowser(ForceDirectedGraphCanvas graph, TextFlow textFlow) {
         this.graph = graph;
+        this.textFlow = textFlow;
         {
             try // set up blacklist
             {
@@ -70,7 +81,7 @@ public class WebBrowser extends Region {
                 reader = new CSVFileReader(new BufferedReader(new InputStreamReader(
                         is
                 )));
-                ArrayList<String> list = reader.getAllTokens();
+                ArrayList<String> list = reader.getAllTokens(true);
                 is.close();
                 blacklist = new String[list.size()];
                 blacklist = list.toArray(blacklist);
@@ -78,6 +89,8 @@ public class WebBrowser extends Region {
                 Logger.getLogger(WebBrowser.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+        
+        nlp = new NaturalLanguageProcessing();
         
         //browser.setMaxHeight(Double.MAX_VALUE);
         
@@ -123,40 +136,25 @@ public class WebBrowser extends Region {
                         protected Void call() throws Exception {
                             // Now block the thread for a short time, but be sure
                             // to check the interrupted exception for cancellation!
-                            Platform.runLater(() -> {
-                                final int numTerms = getNumTermsInDoc();
-                                //Thread thread = new Thread(){
-                                    //public void run(){
-                                        graph.addNode(parentSearchHashCode, thisSearchHashCode,
-                                                broswerIsSearching ? 1 : numTerms);
-                                    //}
-                                //};
-                                //thread.start();
-                                if( numTerms > 0 ) {
-                                    System.out.println("Num terms in paragraph text: "+numTerms);
-                                    
-                                } else {
-                                    System.out.println("No terms used in paragraph");
-                                }
+                            
                                 
-                                Task task2 = new Task<Void>() {
-                                    @Override
-                                    protected Void call() throws Exception {
-                                        if( !broswerIsSearching && numTerms > 0 ) {
-                                            try {
-                                                Thread.sleep(GOOD_PAGE_LOAD_WAIT);
-                                            } catch (InterruptedException interrupted) {
-                                                // do nothing
-                                            }
+                            Task task2 = new Task<Void>() {
+                                @Override
+                                protected Void call() throws Exception {
+                                    if( !broswerIsSearching && thisRelevancyScore > 0 ) {
+                                        try {
+                                            Thread.sleep(GOOD_PAGE_LOAD_WAIT);
+                                        } catch (InterruptedException interrupted) {
+                                            // do nothing
                                         }
-                                        Platform.runLater(() -> {
-                                            startPageLoad(false);
-                                        });
-                                        return null;
                                     }
-                                };
-                                new Thread(task2).start();
-                            });
+                                    Platform.runLater(() -> {
+                                        startPageLoad(false);
+                                    });
+                                    return null;
+                                }
+                            };
+                            new Thread(task2).start();
                             
                             // load next page
                             return null;
@@ -186,13 +184,16 @@ public class WebBrowser extends Region {
     
     int parentSearchHashCode;
     int thisSearchHashCode;
+    int thisRelevancyScore;
+    int thisEmotionalScore;
+    boolean waitForPageTests = true;
     private void startPageLoad(boolean firstTime) {
         if( firstTime ) {
             // set up search term engine and load page
             searchTermEngine = new SearchTerm();
             String searchTermString = searchTermEngine.generateRandomSearchURL();
             parentSearchHashCode = 0;
-            thisSearchHashCode = searchTermString.hashCode();
+            thisSearchHashCode = 0;
             System.out.println("searchTerm: "+searchTermString);
             broswerIsSearching = true;
             webEngine.load(searchTermString);
@@ -200,9 +201,9 @@ public class WebBrowser extends Region {
                     Duration.millis(PAGE_LOAD_MAX_WAIT),
                     ae -> {
                         // taking too long timer
-                        Platform.runLater(() -> {
-                            System.out.println("TIMER RAN OUT, RESETING WORKER AND LOAD");
-                        });
+                        //Platform.runLater(() -> {
+                            System.out.println("TIMER RAN OUT, R    ESETING WORKER AND LOAD");
+                        //});
                         webEngine.getLoadWorker().cancel();
                         startPageLoad(false);
                     }));
@@ -220,7 +221,6 @@ public class WebBrowser extends Region {
             content = content.replace("\r", "\\n");
             webEngine.executeScript(content);
             }
-            int numTerms = getNumTermsInDoc();
             System.out.println("getting links");
             String []links;
             boolean forceSearchAgain = false;
@@ -228,7 +228,7 @@ public class WebBrowser extends Region {
                 links = getGoogleSearchHyperlinks(getAllHyperlinks());
             } else {
                 links = getAllHyperlinks();
-                if( numTerms == 0 ) {
+                if( thisRelevancyScore == 0 ) {
                     forceSearchAgain = true;
                 }
             }
@@ -242,16 +242,64 @@ public class WebBrowser extends Region {
                 broswerIsSearching = false;
                 webEngine.getLoadWorker().cancel();
                 webEngine.load(chosenLink);
+                loadBoilerpipe(chosenLink);
             } else {
                 String searchTermString = searchTermEngine.generateRandomSearchURL();
                 System.out.println("searchTerm: "+searchTermString);
-                parentSearchHashCode = 0;
-                thisSearchHashCode = searchTermString.hashCode();
+                //parentSearchHashCode = 0;
+                thisSearchHashCode = 0;
                 broswerIsSearching = true;
                 webEngine.getLoadWorker().cancel();
                 webEngine.load(searchTermString);
             }
+            timeline = new Timeline(new KeyFrame(
+                    Duration.millis(PAGE_LOAD_MAX_WAIT),
+                    ae -> {
+                        // taking too long timer
+                        //Platform.runLater(() -> {
+                            System.out.println("TIMER RAN OUT, RESETING WORKER AND LOAD");
+                        //});
+                        webEngine.getLoadWorker().cancel();
+                        startPageLoad(false);
+                    }));
+            timeline.play();
         }
+    }
+    
+    private void loadBoilerpipe(String url) {
+        System.out.println("loadBoilerpipe: "+url);
+        (new Thread() {
+            @Override
+            public void run() {
+                try {
+                    // boilerpipe
+                    /*
+                    Platform.runLater(() -> {
+                        textFlow.getChildren().clear();
+                        textFlow.getChildren().add(new Text("Running boilerplate"));
+                    });
+                    */
+                    String text = ArticleExtractor.INSTANCE.getText(new URL(url));
+                    String lettersOnlyText = text.toLowerCase().replaceAll("[^A-Za-z\\s]+", "");
+                    thisEmotionalScore = nlp.scoreText(lettersOnlyText);
+                    System.out.println("Emotional score: "+thisEmotionalScore);
+                    String relevancyText = text.toLowerCase().replaceAll("[^A-Za-z0-9\\s-':()]+", "");
+                    thisRelevancyScore = searchTermEngine.checkNumberOfWordsUsed(relevancyText);
+                    System.out.println("Relevancy score: "+thisRelevancyScore);
+                    
+                    Platform.runLater(() -> {
+                        if( !broswerIsSearching ) {
+                            System.out.println("Adding node from "+parentSearchHashCode
+                                    +" to "+thisSearchHashCode);
+                            graph.addNode(parentSearchHashCode, thisSearchHashCode,
+                                    thisRelevancyScore, thisEmotionalScore);
+                        }
+                    });
+                } catch (BoilerpipeProcessingException | MalformedURLException ex) {
+                    Logger.getLogger(WebBrowser.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }).start();
     }
     
     private final String searchUrlCode = "/url?q=";
@@ -274,6 +322,7 @@ public class WebBrowser extends Region {
         return linksArray;
     }
     
+    /*
     private int getNumTermsInDoc() {
         Document document = webEngine.getDocument();
         NodeList nodeList = document.getElementsByTagName("*");
@@ -299,11 +348,6 @@ public class WebBrowser extends Region {
                     }
                 }
             }
-            /*
-            if (node.getNodeType() == org.w3c.dom.Node.TEXT_NODE) {
-                paragraphs.add(node.getNodeValue());
-            }
-                    */
         }
         int numWordsUsed = 0;
         if( paragraphs.size() > 0 ) {
@@ -311,6 +355,7 @@ public class WebBrowser extends Region {
         }
         return numWordsUsed;
     }
+    */
     
     private String[] getAllHyperlinks() {
         Document document = webEngine.getDocument();

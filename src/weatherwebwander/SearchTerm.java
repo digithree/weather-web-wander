@@ -32,10 +32,15 @@ public class SearchTerm {
     };
     */
     private String []searchTermFiles = {
-        "climate-change-terms.csv",
+        "climatechange-searchTerms.csv"
+    };
+    private String []relevantTermsFiles = {
+        "climate-change-terms-acronyms.csv",
+        "climate-change-terms-min.csv",
         "tulca-2015-keywords.csv"
     };
     private String [][]searchTerms;
+    private String [][]relevantTerms;
     
     public SearchTerm() {
         System.out.println("Trying to initialise SearchTerm...");
@@ -47,12 +52,37 @@ public class SearchTerm {
     public int checkNumberOfWordsUsed(ArrayList<String> textLines) {
         int count = 0;
         for( String line : textLines ) {
-            for( int i = 0 ; i < searchTerms.length ; i++ ) {
-                for( String term : searchTerms[i] ) {
+            for( int i = 0 ; i < relevantTerms.length ; i++ ) {
+                for( String term : relevantTerms[i] ) {
                     if( line.contains(term) ) {
                         System.out.print(term+", ");
                         count++;
                     }
+                }
+            }
+        }
+        System.out.println("[END] ");
+        return count;
+    }
+    
+    public int checkNumberOfWordsUsed(String text) {
+        int count = 0;
+        System.out.print("Looking for acronyms: ");
+        String []parts = text.split("\\s+");
+        for( String part : parts ) {
+            for( String term : relevantTerms[0] ) {
+                if(part.equals(term)) {
+                    System.out.print(term+", ");
+                    count++;
+                }
+            }
+        }
+        System.out.print("\nLooking for terms: ");
+        for( int i = 1 ; i < relevantTerms.length ; i++ ) { //Going from index 1
+            for( String term : relevantTerms[i] ) {
+                if( text.contains(term.toLowerCase()) ) {
+                    System.out.print(term+", ");
+                    count++;
                 }
             }
         }
@@ -71,7 +101,7 @@ public class SearchTerm {
                 reader = new CSVFileReader(new BufferedReader(new InputStreamReader(
                         is
                 )));
-                ArrayList<String> searchTermsList = reader.getAllTokens();
+                ArrayList<String> searchTermsList = reader.getAllTokens(true);
                 is.close();
                 searchTerms[idx] = new String[searchTermsList.size()];
                 searchTerms[idx] = searchTermsList.toArray(searchTerms[idx]);
@@ -82,8 +112,33 @@ public class SearchTerm {
                 error = true;
             }
         }
+        // relevant terms
+        relevantTerms = new String[relevantTermsFiles.length][];
+        idx = 0;
+        for( String filename : relevantTermsFiles ) {
+            try {
+                CSVFileReader reader;
+                InputStream is = getClass().getResourceAsStream(filename);
+                reader = new CSVFileReader(new BufferedReader(new InputStreamReader(
+                        is
+                )));
+                ArrayList<String> searchTermsList = reader.getAllTokens(true);
+                is.close();
+                relevantTerms[idx] = new String[searchTermsList.size()];
+                relevantTerms[idx] = searchTermsList.toArray(relevantTerms[idx]);
+                idx++;
+            } catch (IOException ex) {
+                Logger.getLogger(SearchTerm.class.getName()).log(Level.SEVERE, null, ex);
+                relevantTerms[idx++] = null;
+                error = true;
+            }
+        }
+        for( String term : relevantTerms[0] ) {
+            System.out.println("T: "+term);
+        }
         return !error;
     }
+    
     
     public String generateRandomSearchURL() {
         int firstIdx = (int)(Math.random()*(double)searchTerms.length);

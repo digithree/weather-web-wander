@@ -46,7 +46,7 @@ public class CSVFileReader {
     
     
     private final int MAX_ITEMS_TO_READ = 30000;
-    public ArrayList<String> getAllTokens() {
+    public ArrayList<String> getAllTokens(boolean throwAwayShortWords) {
         ArrayList<String> tokensList = new ArrayList<String>();
         int itemsRead = 0;
         try {
@@ -56,8 +56,12 @@ public class CSVFileReader {
                     break;
                 }
                 token = token.replace("\"", "");
-                System.out.println("Token: "+token);
-                if( token.length() >= 2 ) {
+                //System.out.println("Token: "+token);
+                if( throwAwayShortWords ) {
+                    if( token.length() >= 2 ) {
+                        tokensList.add(token);
+                    }
+                } else {
                     tokensList.add(token);
                 }
             }

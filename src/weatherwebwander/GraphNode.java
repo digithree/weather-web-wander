@@ -22,6 +22,9 @@ public class GraphNode {
     public final float MAX_VEL = 200.f;
     
     public final int NODE_VIZ_SIZE = 5;
+    private final int MAX_SIZE = 8;
+    private final int SIZE_ADJUST_FACTOR = 4;
+    private final int MAX_EMOTION = 50;
     
     ArrayList<GraphNode> children = new ArrayList<GraphNode>();
     ArrayList<GraphNode> parents = new ArrayList<GraphNode>();
@@ -32,6 +35,7 @@ public class GraphNode {
     float mass = 0.1f;
     
     int size = 1;
+    int type = 0;
     public int hashCode = 0;
     
     public GraphNode(int size) {
@@ -124,12 +128,30 @@ public class GraphNode {
     
     public void draw(GraphicsContext context) {
         if( pos != null ) {
-            context.setFill(Color.color(0.8, 0.8, 0.8));
-            context.setStroke(Color.BLACK);
-            context.setLineWidth(1);
-            //ellipse(pos.x,pos.y,NODE_VIZ_SIZE*freq,NODE_VIZ_SIZE*freq);
-            float ovalSize = NODE_VIZ_SIZE*size;
-            context.strokeOval(pos.x-(ovalSize/2.f),pos.y-(ovalSize/2.f),ovalSize,ovalSize);
+            if( !unmoveable ) {
+                //context.setFill(Color.color(0.8, 0.8, 0.8, 0.5));
+                Color col = Color.color(0,0,1.f,0.7f);
+                if( type < 0 ) {
+                    float val = (float)-(type<=MAX_EMOTION?type:MAX_EMOTION) / (float)MAX_EMOTION;
+                    if( val > 1.f ) {
+                        val = 1.f;
+                    }
+                    col = Color.color(val,0,1.f-val,0.7f);
+                } else if( type > 0 ) {
+                    float val = (float)(type<=MAX_EMOTION?type:MAX_EMOTION) / (float)MAX_EMOTION;
+                    if( val > 1.f ) {
+                        val = 1.f;
+                    }
+                    col = Color.color(0,val,1.f-val,0.7f);
+                }
+                context.setFill(col);
+                context.setStroke(Color.WHITE);
+                context.setLineWidth(1);
+                int adjustedSize = (size/SIZE_ADJUST_FACTOR)>=1?(size/SIZE_ADJUST_FACTOR):1;
+                float ovalSize = NODE_VIZ_SIZE*(adjustedSize<=MAX_SIZE?adjustedSize:MAX_SIZE);
+                context.fillOval(pos.x-(ovalSize/2.f),pos.y-(ovalSize/2.f),ovalSize,ovalSize);
+                context.strokeOval(pos.x-(ovalSize/2.f),pos.y-(ovalSize/2.f),ovalSize,ovalSize);
+            }
             // draw connections
             for( GraphNode child : children ) {
                 if( child.pos != null ) {

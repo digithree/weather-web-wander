@@ -26,6 +26,7 @@ public class WeatherWebWander extends Application {
     
     private GraphCanvas forceDirectedGraphCanvas;
     private GraphCanvas vennDiagramGraphCanvas;
+    private TextFlow textFlow;
     
     @Override
     public void start(Stage primaryStage) throws Exception {
@@ -60,7 +61,7 @@ public class WeatherWebWander extends Application {
                        vennGraphCanvasContainer.heightProperty());
         */
         
-        TextFlow textFlow = new TextFlow();
+        textFlow = new TextFlow();
         //textFlow.setMinWidth(Float.MAX_VALUE);
         textFlow.setMaxHeight(200);
         textFlow.getChildren().add(new Text("Some kind of text."));
@@ -77,7 +78,8 @@ public class WeatherWebWander extends Application {
         // master split pane
         SplitPane masterPane = new SplitPane();
         masterPane.setOrientation(Orientation.HORIZONTAL);
-        masterPane.getItems().addAll(graphsSplitPane, new WebBrowser((ForceDirectedGraphCanvas)forceDirectedGraphCanvas));
+        masterPane.getItems().addAll(graphsSplitPane, new WebBrowser(
+                (ForceDirectedGraphCanvas)forceDirectedGraphCanvas,textFlow));
         masterPane.setDividerPositions(0.35f,0.65f);
 
         // create the scene
@@ -86,7 +88,7 @@ public class WeatherWebWander extends Application {
         primaryStage.setScene(scene);
         //scene.getStylesheets().add("webviewsample/BrowserToolbar.css");        
         primaryStage.show();
-        primaryStage.setFullScreen(true);
+        //primaryStage.setFullScreen(true);
     }
 
     /**

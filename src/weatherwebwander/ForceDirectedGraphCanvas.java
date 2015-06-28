@@ -73,12 +73,13 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
         // NOTE: only runs for an hour
     }
     
-    final public void addNode(int parentHashCode, int newHashCode, int score) {
+    final public void addNode(int parentHashCode, int newHashCode, int score, int emotion) {
         GraphNode newNode = null;
         for( GraphNode node : graphNodes ) {
             if( node.hashCode == parentHashCode ) {
                 newNode = new GraphNode(score+1);
                 newNode.hashCode = newHashCode;
+                newNode.type = emotion;
                 float angle = (float)Math.random()*((float)Math.PI*2.f);
                 newNode.pos = new PVector(node.pos.x+((float)Math.cos(angle)*radius),
                         node.pos.y+((float)Math.sin(angle)*radius));
