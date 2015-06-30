@@ -28,8 +28,12 @@ public class WeatherWebWander extends Application {
     private GraphCanvas vennDiagramGraphCanvas;
     private TextFlow textFlow;
     
+    private WebpageManager webpageManager;
+    
+    
     @Override
     public void start(Stage primaryStage) throws Exception {
+        
         SplitPane graphsSplitPane = new SplitPane();
         graphsSplitPane.setOrientation(Orientation.VERTICAL);
         
@@ -78,9 +82,11 @@ public class WeatherWebWander extends Application {
         // master split pane
         SplitPane masterPane = new SplitPane();
         masterPane.setOrientation(Orientation.HORIZONTAL);
-        masterPane.getItems().addAll(graphsSplitPane, new WebBrowser(
-                (ForceDirectedGraphCanvas)forceDirectedGraphCanvas,textFlow));
+        WebBrowser webBrowser = new WebBrowser();
+        masterPane.getItems().addAll(graphsSplitPane, webBrowser);
         masterPane.setDividerPositions(0.35f,0.65f);
+        
+        webpageManager = new WebpageManager(webBrowser, (ForceDirectedGraphCanvas)forceDirectedGraphCanvas);
 
         // create the scene
         primaryStage.setTitle("Web View");

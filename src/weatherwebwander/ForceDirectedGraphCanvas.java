@@ -18,22 +18,21 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
     
     float GLOBAL_TIME_FACTOR = 50.f;
     
-    ArrayList<GraphNode> graphNodes = new ArrayList<GraphNode>();
-    GraphNode headNode;
+    ArrayList<WebpageNode> allNodes;
+    WebpageNode headNode;
     
     PVector center;
-    float radius = 30;
-    //float radius = 700;
-    float angleInset = (float)Math.PI / 4.f;
     
     long lastTime = -1;
     long MINIMUM_ELAPSED_TIME = 30000;
     
     public ForceDirectedGraphCanvas() {
         super();
-        headNode = new GraphNode(1);
-        headNode.unmoveable = true;
+        /*
+        headNode = new WebpageNode(WebpageNode.HEAD_NODE_STRING);
+        headNode.setUnmoveable(true);
         graphNodes.add(headNode);
+        */
         
         // add test nodes
         /*
@@ -73,11 +72,28 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
         // NOTE: only runs for an hour
     }
     
+    public void setNodesList(ArrayList<WebpageNode> allNodes, WebpageNode headNode) {
+        this.allNodes = allNodes;
+        this.headNode = headNode;
+    }
+    
+    public WebpageNode getNode(int hashcode) {
+        if( allNodes != null ) {
+            for( WebpageNode node : allNodes ) {
+                if( node.getHashcode() == hashcode ) {
+                    return node;
+                }
+            }
+        }
+        return null;
+    }
+    
+    /*
     final public void addNode(int parentHashCode, int newHashCode, int score, int emotion) {
-        GraphNode newNode = null;
-        for( GraphNode node : graphNodes ) {
-            if( node.hashCode == parentHashCode ) {
-                newNode = new GraphNode(score+1);
+        WebpageNode newNode = null;
+        for( WebpageNode node : graphNodes ) {
+            if( node.getHashcode() == parentHashCode ) {
+                newNode = new WebpageNode(score+1);
                 newNode.hashCode = newHashCode;
                 newNode.type = emotion;
                 float angle = (float)Math.random()*((float)Math.PI*2.f);
@@ -91,26 +107,58 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
             graphNodes.add(newNode);
         }
     }
+    */
+    
+    /*
+    final public void addNode( WebpageNode webpageNode ) {
+        int parentHashCode = 0;
+        if( webpageNode.getParent() != null ) {
+            parentHashCode = webpageNode.getParent().getHashcode();
+        }
+        WebpageNode newNode = null;
+        for( WebpageNode node : graphNodes ) {
+            if( node.hashCode == parentHashCode ) {
+                newNode = new WebpageNode(webpageNode.getRelevancy()+1);
+                newNode.hashCode = webpageNode.getHashcode();
+                newNode.type = webpageNode.getEmotion();
+                float angle = (float)Math.random()*((float)Math.PI*2.f);
+                newNode.pos = new PVector(node.pos.x+((float)Math.cos(angle)*radius),
+                        node.pos.y+((float)Math.sin(angle)*radius));
+                node.addChild(newNode);
+                
+            }
+        }
+        if( newNode != null ) {
+            graphNodes.add(newNode);
+        }
+    }
+    */
     
     @Override
     protected void extraResize() {
-        headNode.pos = new PVector((float)getWidth()/2.f, (float)getHeight()/2.f);
+        if( headNode != null ) {
+            headNode.setPos( new PVector((float)getWidth()/2.f, (float)getHeight()/2.f) );
+        }
     }
     
     @Override
     public void draw() {
         GraphicsContext gc = getGraphicsContext2D();
         gc.clearRect(0, 0, getWidth(), getHeight());
-        for( GraphNode node : graphNodes ) {
-            node.draw(gc);
+        if( allNodes != null ) {
+            for( WebpageNode node : allNodes ) {
+                node.draw(gc);
+            }
         }
         
     }
     
     public void update(float deltaTime) {
-        for( GraphNode node : graphNodes ) {
-            node.applyMovement(deltaTime*GLOBAL_TIME_FACTOR);
-            node.applyUniversalWeakReplusion(graphNodes, deltaTime*GLOBAL_TIME_FACTOR);
+        if( allNodes != null ) {
+            for( WebpageNode node : allNodes ) {
+                node.applyMovement(deltaTime*GLOBAL_TIME_FACTOR);
+                node.applyUniversalWeakReplusion(allNodes, deltaTime*GLOBAL_TIME_FACTOR);
+            }
         }
         draw();
     }
