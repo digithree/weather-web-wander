@@ -31,23 +31,29 @@ public class WebpageNode {
     private boolean visited = false;
     
     // gfx
+    private final float CENTRAL_FORCE_FACTOR = 0.001f;
+    private final float CENTRAL_EQUILIBRIUM_DIST = 15.f;
+    
     private final float FORCE_FACTOR = 0.005f;
     private final float ENTROPY_FACTOR = 0.0f;
     private final float EQUILIBRIUM_DIST = 5.f;
-    private final float MAX_VEL = 20.f;
+    private final float MAX_VEL = 2.f;
+    private final float MAX_VECTOR_MAG = 4.f;
+    //private final float MIN_DIST_FOR_FORCE = 2.f;
     
     private final int NODE_VIZ_SIZE = 5;
     private final int MAX_SIZE = 8;
-    private final int SIZE_ADJUST_FACTOR = 4;
-    private final int MAX_EMOTION = 50;
+    private final int SIZE_ADJUST_FACTOR = 2;
+    private final int MAX_EMOTION = 30;
     
     private final float POPULATE_CLOSE_RADIUS = 30;
-    private final float POPULATE_CLOSE_ANGLE = (float)Math.PI / 4.f;
     
     private PVector pos = new PVector();
     private PVector vector = new PVector();
     private boolean unmoveable = true;
     private float mass = 0.1f;
+    
+    private final int MIN_RELEVANCY = 3;
     
     
     public WebpageNode(String URL) {
@@ -56,13 +62,15 @@ public class WebpageNode {
     
     // --- family
     public void addChild( WebpageNode child ) {
-        if( !children.contains(child) ) {
-            System.out.println("["+getHashcode()+"] Added child ("+child.getHashcode()+")");
-            children.add(child);
-            if( !allConnections.contains(child) ) {
-                allConnections.add(child);
+        if( this != child && !children.contains(child) ) {
+            if( this.getHashcode() != child.getHashcode() ) {
+                System.out.println("["+getHashcode()+"] Added child ("+child.getHashcode()+")");
+                children.add(child);
+                if( !allConnections.contains(child) ) {
+                    allConnections.add(child);
+                }
+                child.addParent(this);
             }
-            child.addParent(this);
         }
     }
 
@@ -70,15 +78,23 @@ public class WebpageNode {
         if( !parents.contains(parent) ) {
             System.out.println("["+getHashcode()+"] Added parent ("+parent.getHashcode()+")");
             parents.add(parent);
-            // move node pos close to parent
-            float angle = (float)Math.random()*((float)Math.PI*2.f);
-            pos = new PVector(parent.getPos().x+((float)Math.cos(angle)*POPULATE_CLOSE_RADIUS),
-                        parent.getPos().y+((float)Math.sin(angle)*POPULATE_CLOSE_RADIUS));
-            unmoveable = false; // anything with a parent is released from unmovability
+            // move node pos close to parent if not first parent
+            if( parents.size() == 1 ) {
+                float angle = (float)Math.random()*((float)Math.PI*2.f);
+                pos = new PVector(parent.getPos().x+((float)Math.cos(angle)*POPULATE_CLOSE_RADIUS),
+                            parent.getPos().y+((float)Math.sin(angle)*POPULATE_CLOSE_RADIUS));
+                unmoveable = false; // anything with a parent is released from unmovability
+            }
             if( !allConnections.contains(parent) ) {
                 allConnections.add(parent);
             }
         }
+    }
+    
+    public void removeNodeReferences( WebpageNode child ) {
+        children.remove(child);
+        parents.remove(child);
+        allConnections.remove(child);
     }
 
     public ArrayList<WebpageNode> getChildren() {
@@ -93,7 +109,7 @@ public class WebpageNode {
         this.relevancy = relevancy;
         this.size = relevancy + 1;
         //mass = (1.f / (float)size) * 0.1f;
-        mass = 1.f;
+        //mass = 1.f;
         
         this.emotion = emotion;
         color = emotion;
@@ -148,26 +164,50 @@ public class WebpageNode {
     }
     
     // --- draw
-    public void applyMovement( float deltaTime ) {
+    public void applyForces(ArrayList<WebpageNode> allNodes, float deltaTime) {
         vector = new PVector();
-        for( WebpageNode node : allConnections ) {
-            applyAttraction( node, deltaTime ,FORCE_FACTOR, EQUILIBRIUM_DIST);
+        applyMovement(deltaTime);
+        applyUniversalWeakReplusion(allNodes, deltaTime);
+        applyUniversalCenterAttraction(allNodes.get(0), deltaTime);
+        float force = vector.mag();
+        if( force > MAX_VECTOR_MAG ) {
+            vector.normalize();
+            vector.mult(MAX_VECTOR_MAG);
         }
         pos.add(vector);
+    }
+    
+    
+    // primary force functions
+    
+    public void applyMovement( float deltaTime ) {
+        for( WebpageNode node : allConnections ) {
+            applyAttraction( node, deltaTime ,FORCE_FACTOR, EQUILIBRIUM_DIST, false);
+        }
+        //pos.add(vector);
     }
 
     public void applyUniversalWeakReplusion( ArrayList<WebpageNode> allNodes, float deltaTime ) {
         for( WebpageNode node : allNodes ) {
             if( node != this ) {
                 //applyAttraction( node, deltaTime, FORCE_FACTOR * 0.01, EQUILIBRIUM_DIST * 3 );
-                applyReplusion( node, deltaTime, FORCE_FACTOR * 1000000 );
+                applyReplusion( node, deltaTime, FORCE_FACTOR * 2000000 );
             }
         }
-        pos.add(vector);	
+        //pos.add(vector);	
     }
-
-    void applyAttraction( WebpageNode other, float deltaTime, float force, float distance ) {
-        if( unmoveable ) {
+    
+    public void applyUniversalCenterAttraction( WebpageNode centerNode, float deltaTime ) {
+        if( this != centerNode ) {
+            applyAttraction( centerNode, deltaTime ,CENTRAL_FORCE_FACTOR, CENTRAL_EQUILIBRIUM_DIST, true);
+        }
+    }
+    
+    
+    // secondary force functions
+    
+    void applyAttraction( WebpageNode other, float deltaTime, float force, float distance, boolean invert ) {
+        if( unmoveable  ) { //|| distance < MIN_DIST_FOR_FORCE
             return;
         }
         PVector attract = new PVector( other.pos.x, other.pos.y );
@@ -175,7 +215,7 @@ public class WebpageNode {
         PVector entropy = new PVector();
         entropy.set(attract);
 
-        float actualForce = force * (attract.mag() - distance);
+        float actualForce = force * (attract.mag() - ((invert?1:-1)*distance));
         attract.normalize();
         attract.mult(actualForce);
 
@@ -205,7 +245,20 @@ public class WebpageNode {
         vector.add(attract);
     }
     
-    public void draw(GraphicsContext context) {
+    public void drawConnections(GraphicsContext context) {
+        if( pos != null ) {
+            // draw connections
+            for( WebpageNode child : children ) {
+                if( child.pos != null ) {
+                    context.setStroke(Color.color(0.1, 0.1, 0.1, 0.1));
+                    context.setLineWidth(1);
+                    context.strokeLine(pos.x,pos.y,child.pos.x,child.pos.y);
+                }
+            }
+        }
+    }
+    
+    public void drawNode(GraphicsContext context) {
         if( pos != null ) {
             Color col = Color.color(0,0,1.f,0.7f);
             if( !unmoveable ) {
@@ -231,19 +284,14 @@ public class WebpageNode {
             int adjustedSize = (size/SIZE_ADJUST_FACTOR)>=1?(size/SIZE_ADJUST_FACTOR):1;
             float ovalSize = NODE_VIZ_SIZE*(adjustedSize<=MAX_SIZE?adjustedSize:MAX_SIZE);
             if( visited || unmoveable ) {
+                if( this.relevancy < MIN_RELEVANCY ) {
+                    context.setFill(Color.GREY);
+                }
                 context.fillOval(pos.x-(ovalSize/2.f),pos.y-(ovalSize/2.f),ovalSize,ovalSize);
                 context.strokeOval(pos.x-(ovalSize/2.f),pos.y-(ovalSize/2.f),ovalSize,ovalSize);
             } else {
-                context.setStroke(Color.BLACK);
+                context.setStroke(Color.GREY);
                 context.strokeOval(pos.x-(ovalSize/2.f),pos.y-(ovalSize/2.f),ovalSize,ovalSize);
-            }
-            // draw connections
-            for( WebpageNode child : children ) {
-                if( child.pos != null ) {
-                    context.setStroke(Color.color(0, 0, 0, 0.2));
-                    context.setLineWidth(1);
-                    context.strokeLine(pos.x,pos.y,child.pos.x,child.pos.y);
-                }
             }
         }
     }

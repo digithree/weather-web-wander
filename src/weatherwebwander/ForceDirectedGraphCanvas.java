@@ -72,6 +72,10 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
         // NOTE: only runs for an hour
     }
     
+    public ArrayList<WebpageNode> getAllNodes() {
+        return allNodes;
+    }
+    
     public void setNodesList(ArrayList<WebpageNode> allNodes, WebpageNode headNode) {
         this.allNodes = allNodes;
         this.headNode = headNode;
@@ -137,6 +141,7 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
     @Override
     protected void extraResize() {
         if( headNode != null ) {
+            System.out.println("ForceDirectedGraphCanvas:: extraResize");
             headNode.setPos( new PVector((float)getWidth()/2.f, (float)getHeight()/2.f) );
         }
     }
@@ -147,8 +152,13 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
         gc.clearRect(0, 0, getWidth(), getHeight());
         if( allNodes != null ) {
             for( WebpageNode node : allNodes ) {
-                node.draw(gc);
+                node.drawConnections(gc);
             }
+            for( WebpageNode node : allNodes ) {
+                node.drawNode(gc);
+            }
+        } else {
+            System.out.println("ForceDirectedGraphCanvas:: allNodes is null!");
         }
         
     }
@@ -156,8 +166,7 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
     public void update(float deltaTime) {
         if( allNodes != null ) {
             for( WebpageNode node : allNodes ) {
-                node.applyMovement(deltaTime*GLOBAL_TIME_FACTOR);
-                node.applyUniversalWeakReplusion(allNodes, deltaTime*GLOBAL_TIME_FACTOR);
+                node.applyForces(allNodes, deltaTime*GLOBAL_TIME_FACTOR);
             }
         }
         draw();
