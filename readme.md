@@ -25,7 +25,7 @@ The process continues infinitely.
 
 ### Web page processing
 
-When the crawler reaches a non search page it is parsed by Boilerpipe and a single plain text string generated using the ArticleExtractor as we are looking for webpage in article format (headings, paragraphs of text). This is to facilitate two tests which generate a relevancy and emotional score.
+When the crawler reaches a relevant website page it is parsed by Boilerpipe and a single plain text string generated using the ArticleExtractor as we are looking for webpage in article format (headings, paragraphs of text). This is to facilitate two tests which generate a relevancy and emotional score.
 
 #### Relevancy
 
