@@ -8,6 +8,7 @@ package weatherwebwander;
 
 import java.util.ArrayList;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 
 /**
@@ -42,7 +43,7 @@ public class WebpageNode {
     //private final float MIN_DIST_FOR_FORCE = 2.f;
     
     private final int NODE_VIZ_SIZE = 5;
-    private final int MAX_SIZE = 8;
+    private final int MAX_SIZE = 15;
     private final int SIZE_ADJUST_FACTOR = 2;
     private final int MAX_EMOTION = 30;
     
@@ -55,6 +56,15 @@ public class WebpageNode {
     
     private final int MIN_RELEVANCY = 3;
     
+    private int level = 0;
+    
+    private Image favIconImage;
+    
+    
+    
+    public int getLevel() {
+        return level;
+    }
     
     public WebpageNode(String URL) {
         this.URL = URL;
@@ -80,10 +90,15 @@ public class WebpageNode {
             parents.add(parent);
             // move node pos close to parent if not first parent
             if( parents.size() == 1 ) {
+                level = parent.getLevel() + 1;
                 float angle = (float)Math.random()*((float)Math.PI*2.f);
                 pos = new PVector(parent.getPos().x+((float)Math.cos(angle)*POPULATE_CLOSE_RADIUS),
                             parent.getPos().y+((float)Math.sin(angle)*POPULATE_CLOSE_RADIUS));
                 unmoveable = false; // anything with a parent is released from unmovability
+            } else {
+                if( parent.getLevel() + 1 < level ) {
+                    level = parent.getLevel() + 1;
+                }
             }
             if( !allConnections.contains(parent) ) {
                 allConnections.add(parent);
@@ -161,6 +176,10 @@ public class WebpageNode {
     
     public void setPos(PVector pos) {
         this.pos = pos;
+    }
+    
+    public void setFavIconImage(Image favIconImage) {
+        this.favIconImage = favIconImage;
     }
     
     // --- draw
@@ -284,7 +303,7 @@ public class WebpageNode {
             int adjustedSize = (size/SIZE_ADJUST_FACTOR)>=1?(size/SIZE_ADJUST_FACTOR):1;
             float ovalSize = NODE_VIZ_SIZE*(adjustedSize<=MAX_SIZE?adjustedSize:MAX_SIZE);
             if( visited || unmoveable ) {
-                if( this.relevancy < MIN_RELEVANCY ) {
+                if( !unmoveable && this.relevancy < MIN_RELEVANCY ) {
                     context.setFill(Color.GREY);
                 }
                 context.fillOval(pos.x-(ovalSize/2.f),pos.y-(ovalSize/2.f),ovalSize,ovalSize);
@@ -292,6 +311,19 @@ public class WebpageNode {
             } else {
                 context.setStroke(Color.GREY);
                 context.strokeOval(pos.x-(ovalSize/2.f),pos.y-(ovalSize/2.f),ovalSize,ovalSize);
+            }
+            // level text
+            /*
+            if( visited ) {
+                context.setFill(Color.GREY);
+                context.fillText(""+level, pos.x + 5, pos.y);
+            }
+                    */
+            // favicon
+            if( favIconImage != null ) {
+                //context.setFill(Color.WHITE);
+                //context.fillRect(pos.x+(ovalSize/2)+2, pos.y-9, 18, 18);
+                context.drawImage(favIconImage, pos.x+(ovalSize/2)+2, pos.y-8, 16, 16);
             }
         }
     }
