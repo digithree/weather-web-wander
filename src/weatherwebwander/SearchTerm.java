@@ -16,7 +16,8 @@ public class SearchTerm {
     //private String searchURLPart1 = "http://duckduckgo.com/?q=";
     private String searchURLPart2 = "";//"&ia=answer";
     
-    private String searchTermFile = "climatechange-searchTerms.csv";
+    //private String searchTermFile = "climatechange-searchTerms.csv";
+    private String searchTermFile = "climatechange-searchTerms-madek.csv";
     
     private String []searchTerms;
     

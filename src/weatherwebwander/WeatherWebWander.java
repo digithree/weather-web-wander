@@ -36,6 +36,10 @@ public class WeatherWebWander extends Application {
     private KeywordMatching keywordMatching;
     private KeywordHistogramChart keywordHistogramChart;
     
+    //private DomainList domainList;
+    
+    
+    
     @Override
     public void start(Stage primaryStage) throws Exception {
         
@@ -57,9 +61,17 @@ public class WeatherWebWander extends Application {
         keywordMatching = new KeywordMatching();
         keywordHistogramChart = new KeywordHistogramChart(pane, keywordMatching);
         
+        Pane pane2 = new Pane();
+        //domainList = new DomainList(pane2);
+        
+        SplitPane analysisSplitPane = new SplitPane();
+        analysisSplitPane.setOrientation(Orientation.VERTICAL);
+        analysisSplitPane.getItems().addAll(pane, pane2);
+        analysisSplitPane.setDividerPositions(0.6f,0.4f);
+        
         SplitPane graphsSplitPane = new SplitPane();
         graphsSplitPane.setOrientation(Orientation.HORIZONTAL);
-        graphsSplitPane.getItems().addAll(pane, graphCanvasContainer);
+        graphsSplitPane.getItems().addAll(analysisSplitPane, graphCanvasContainer);
         graphsSplitPane.setDividerPositions(0.25f,0.75f);
         
         // master split pane
@@ -84,6 +96,7 @@ public class WeatherWebWander extends Application {
                     System.out.println("EXITING");
                     webpageManager.prepareForExit();
                     keywordHistogramChart.prepareForExit();
+                    //domainList.prepareForExit();
                     primaryStage.close();
                 } else {
                     //handleKey(t.getCode());

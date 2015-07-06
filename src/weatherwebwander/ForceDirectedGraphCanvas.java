@@ -9,6 +9,7 @@ package weatherwebwander;
 import java.util.ArrayList;
 import javafx.animation.AnimationTimer;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
 
 /**
  *
@@ -16,31 +17,24 @@ import javafx.scene.canvas.GraphicsContext;
  */
 public class ForceDirectedGraphCanvas extends GraphCanvas {
     
-    float GLOBAL_TIME_FACTOR = 50.f;
+    private float GLOBAL_TIME_FACTOR = 50.f;
     
-    ArrayList<WebpageNode> allNodes;
-    WebpageNode headNode;
+    private ArrayList<WebpageNode> allNodes;
+    private WebpageNode headNode;
     
-    PVector center;
+    private PVector center;
     
-    long lastTime = -1;
-    long MINIMUM_ELAPSED_TIME = 30000;
+    private long lastTime = -1;
+    private long MINIMUM_ELAPSED_TIME = 30000;
+    
+    private String title;
+    
+    private WebpageNode currentNode;
+    private String currentPageTitle;
+    private PVector crossHairsPos = new PVector();
     
     public ForceDirectedGraphCanvas() {
         super();
-        /*
-        headNode = new WebpageNode(WebpageNode.HEAD_NODE_STRING);
-        headNode.setUnmoveable(true);
-        graphNodes.add(headNode);
-        */
-        
-        // add test nodes
-        /*
-        addNode(0, 234562);
-        addNode(0, 238383);
-        addNode(0, 958372);
-        addNode(958372, 937422);
-        */
         
         new AnimationTimer() {
             @Override
@@ -56,20 +50,26 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
                     lastTime = now;
                 }
                 */
-                
                 update(0.005f);
             }
         }.start();
-        
-        /*
-        scheduler.schedule(new Runnable() {
-            @Override
-            public void run() {
-                beeperHandle.cancel(true);
-            }
-        }, 60 * 60, TimeUnit.SECONDS);
-                */
-        // NOTE: only runs for an hour
+    }
+    
+    
+    public void setCurrentNode(WebpageNode currentNode) {
+        this.currentNode = currentNode;
+    }
+    
+    public void setCurrentPageTitle(String currentPageTitle) {
+        this.currentPageTitle = currentPageTitle;
+    }
+    
+    public WebpageNode getCurrentNode() {
+        return currentNode;
+    }
+    
+    public void setTitle(String title) {
+        this.title = title;
     }
     
     public ArrayList<WebpageNode> getAllNodes() {
@@ -92,52 +92,6 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
         return null;
     }
     
-    /*
-    final public void addNode(int parentHashCode, int newHashCode, int score, int emotion) {
-        WebpageNode newNode = null;
-        for( WebpageNode node : graphNodes ) {
-            if( node.getHashcode() == parentHashCode ) {
-                newNode = new WebpageNode(score+1);
-                newNode.hashCode = newHashCode;
-                newNode.type = emotion;
-                float angle = (float)Math.random()*((float)Math.PI*2.f);
-                newNode.pos = new PVector(node.pos.x+((float)Math.cos(angle)*radius),
-                        node.pos.y+((float)Math.sin(angle)*radius));
-                node.addChild(newNode);
-                
-            }
-        }
-        if( newNode != null ) {
-            graphNodes.add(newNode);
-        }
-    }
-    */
-    
-    /*
-    final public void addNode( WebpageNode webpageNode ) {
-        int parentHashCode = 0;
-        if( webpageNode.getParent() != null ) {
-            parentHashCode = webpageNode.getParent().getHashcode();
-        }
-        WebpageNode newNode = null;
-        for( WebpageNode node : graphNodes ) {
-            if( node.hashCode == parentHashCode ) {
-                newNode = new WebpageNode(webpageNode.getRelevancy()+1);
-                newNode.hashCode = webpageNode.getHashcode();
-                newNode.type = webpageNode.getEmotion();
-                float angle = (float)Math.random()*((float)Math.PI*2.f);
-                newNode.pos = new PVector(node.pos.x+((float)Math.cos(angle)*radius),
-                        node.pos.y+((float)Math.sin(angle)*radius));
-                node.addChild(newNode);
-                
-            }
-        }
-        if( newNode != null ) {
-            graphNodes.add(newNode);
-        }
-    }
-    */
-    
     @Override
     protected void extraResize() {
         if( headNode != null ) {
@@ -148,19 +102,23 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
     
     @Override
     public void draw() {
-        GraphicsContext gc = getGraphicsContext2D();
-        gc.clearRect(0, 0, getWidth(), getHeight());
+        GraphicsContext context = getGraphicsContext2D();
+        context.clearRect(0, 0, getWidth(), getHeight());
+        drawCrossHairs(context);
         if( allNodes != null ) {
             for( WebpageNode node : allNodes ) {
-                node.drawConnections(gc);
+                node.drawConnections(context);
             }
             for( WebpageNode node : allNodes ) {
-                node.drawNode(gc);
+                node.drawNode(context);
             }
         } else {
             System.out.println("ForceDirectedGraphCanvas:: allNodes is null!");
         }
-        
+        if( title != null ) {
+            context.setFill(Color.BLACK);
+            context.fillText(title, 20, 20);
+        }
     }
     
     public void update(float deltaTime) {
@@ -169,6 +127,33 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
                 node.applyForces(allNodes, deltaTime*GLOBAL_TIME_FACTOR);
             }
         }
+        updateCrossHairs();
         draw();
+    }
+    
+    private void updateCrossHairs() {
+        if( currentNode != null ) {
+            PVector attract = new PVector( currentNode.getPos().x, currentNode.getPos().y );
+            attract.sub( crossHairsPos );
+
+            float actualForce = attract.mag() * 0.1f;
+            attract.normalize();
+            attract.mult(actualForce);
+
+            crossHairsPos.add(attract);
+        }
+    }
+    
+    private void drawCrossHairs(GraphicsContext context) {
+        if( crossHairsPos != null ) {
+            context.setStroke(Color.ORANGE);
+            context.strokeLine(0, crossHairsPos.y, getWidth(), crossHairsPos.y);
+            context.strokeLine(crossHairsPos.x, 0, crossHairsPos.x, getHeight());
+            if( currentPageTitle != null ) {
+                //context.setFill(Color.DARKGRAY);
+                context.setFill(Color.BLACK);
+                context.fillText(currentPageTitle, 20, crossHairsPos.y - 10);
+            }
+        }
     }
 }

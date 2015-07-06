@@ -66,6 +66,11 @@ public class KeywordMatching {
         return count;
     }
     
+    public void resetMatchCounts() {
+        Arrays.fill(keywordMatchCount, 0);
+        Arrays.fill(acronymMatchCount, 0);
+    }
+    
     // ---getters
     public String[] getKeywords() {
         return keywords;

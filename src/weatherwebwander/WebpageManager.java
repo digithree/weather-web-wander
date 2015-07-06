@@ -16,12 +16,16 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.scene.Node;
 import javafx.scene.image.Image;
 import javafx.scene.text.Text;
 import net.sf.image4j.codec.ico.ICODecoder;
@@ -37,7 +41,6 @@ import org.jsoup.select.Elements;
 public class WebpageManager {
     
     private final WebpageNode webpageNodeHead;
-    private WebpageNode currentNode;
     private final ArrayList<WebpageNode> allNodes = new ArrayList<WebpageNode>();
     
     private final SearchTerm searchTermEngine;
@@ -50,7 +53,7 @@ public class WebpageManager {
     private final int MAX_CONSECUTIVE_ERRORS = 10;
     private int consecutiveErrors = 0;
     
-    private final int BASE_LINKS_TO_EXTRACT = 4;
+    private final int BASE_LINKS_TO_EXTRACT = 3;
     private final int MAX_LINKS = 15;
     
     private final int MIN_RELEVANCY = 3;
@@ -64,13 +67,18 @@ public class WebpageManager {
     private final int PURGE_IRRELEVANT_MOD = 19;
     private int lastSearchCount = MAX_WANDER_UNTIL_NEXT_SEARCH;
     
-    private final int MAX_DISTANCE_FROM_HEAD_NODE = 4;
+    private final int MIN_NODES_FOR_GOOD_GRAPH = 15;
     
     private final Text text;
     
-    boolean runMainThread = true;
+    private boolean runMainThread = true;
     
-    private final int SEARCH_PAGE_RELEVANCY = 6;
+    private Date startTime;
+    
+    // Tweek parameters
+    private final int SEARCH_PAGE_RELEVANCY = MIN_RELEVANCY + 5;
+    private final int MAX_DISTANCE_FROM_HEAD_NODE = 5;
+    
     
     
     public WebpageManager(KeywordMatching keywordMatching, ForceDirectedGraphCanvas graph, Text text) {
@@ -82,7 +90,7 @@ public class WebpageManager {
         searchTermEngine = new SearchTerm();
         keywordMatching = new KeywordMatching();
         webpageNodeHead = createNode(WebpageNode.HEAD_NODE_STRING,null);
-        currentNode = webpageNodeHead;
+        graph.setCurrentNode(webpageNodeHead);
         // let graph displayer know about nodes
         graph.setNodesList(allNodes, webpageNodeHead);
         // setup for first time
@@ -116,9 +124,9 @@ public class WebpageManager {
             public void run() {
                 while(runMainThread) {
                     System.out.println("NEW MAIN THREAD CYCLE: "+allNodes.size()+" nodes exist");
-                    if( currentNode == null ) {
+                    if( graph.getCurrentNode() == null ) {
                         System.out.println("currentnode is null, waiting...");
-                        while(currentNode == null ) {
+                        while(graph.getCurrentNode() == null ) {
                             try {
                                 Thread.sleep(1000);
                             } catch (InterruptedException ex) {
@@ -137,14 +145,14 @@ public class WebpageManager {
                     System.out.println("Finish waiting");
                     // convert google search links to normal links
                     if( links != null ) {
-                        if( currentNode.getURL().toLowerCase().contains("google")
-                                && currentNode.getURL().toLowerCase().contains("search?") ) {
+                        if( graph.getCurrentNode().getURL().toLowerCase().contains("google")
+                                && graph.getCurrentNode().getURL().toLowerCase().contains("search?") ) {
                             links = getGoogleSearchHyperlinks(links);
                         }
                         System.out.println("num actual links: "+links.length);
                         // wait for metrics to be set
                         System.out.println("waiting for metrics to be set");
-                        while(!currentNode.areMetricsSet()) {
+                        while(!graph.getCurrentNode().areMetricsSet()) {
                             try {
                                 Thread.sleep(1000);
                             } catch (InterruptedException ex) {
@@ -159,12 +167,14 @@ public class WebpageManager {
                     //consecutiveErrors = 0;
                     System.out.println("WebpageManager: task completed");
                     // finished
-                    currentNode.setVisited(true);
-                    if(links != null && currentNode.getRelevancy() >= MIN_RELEVANCY) {
+                    graph.getCurrentNode().setVisited(true);
+                    if(links != null && graph.getCurrentNode().getRelevancy() >= MIN_RELEVANCY) {
                         System.out.println("addPageLinks");
-                        System.out.println("page "+currentNode.getURL()+" meets relevancy");
-                        if( currentNode.getChildren().size() > 0 || currentNode.getLevel() >= MAX_DISTANCE_FROM_HEAD_NODE ) {
+                        System.out.println("page "+graph.getCurrentNode().getURL()+" meets relevancy");
+                        if( graph.getCurrentNode().getChildren().size() > 0 ) {
                             System.out.println("Not adding children, already exist");
+                        } else if( graph.getCurrentNode().getLevel() >= MAX_DISTANCE_FROM_HEAD_NODE ) { 
+                            System.out.println("Not adding children, at level limit: "+graph.getCurrentNode().getLevel());
                         } else {
                             if( links.length > 0 ) {
                                 System.out.println("Adding children to currentNode");
@@ -174,7 +184,7 @@ public class WebpageManager {
                                 }
                                 int MAX_TRIES = 10;
                                 int numLinksToExtract = BASE_LINKS_TO_EXTRACT
-                                        + (currentNode.getRelevancy() - MIN_RELEVANCY);
+                                        + (graph.getCurrentNode().getRelevancy() - MIN_RELEVANCY);
                                 if( numLinksToExtract > MAX_LINKS ) {
                                     numLinksToExtract = MAX_LINKS;
                                 }
@@ -194,14 +204,14 @@ public class WebpageManager {
                                             for( WebpageNode node : allNodes ) {
                                                 if( node.getHashcode() == linkHash ) {
                                                     // link already exists, join
-                                                    currentNode.addChild(node);
+                                                    graph.getCurrentNode().addChild(node);
                                                     match = true;
                                                     break;
                                                 }
                                             }
                                             if( !match ) {
                                                 // link is new, create new node
-                                                currentNode.addChild(createNode(link, currentNode));
+                                                graph.getCurrentNode().addChild(createNode(link, graph.getCurrentNode()));
                                             }
                                             usedLinks[idx] = true;
                                             break;
@@ -214,22 +224,22 @@ public class WebpageManager {
                             }
                         }
                     } else {
-                        System.out.println("page "+currentNode.getURL()+" DOESN't meet relevancy");
+                        System.out.println("page "+graph.getCurrentNode().getURL()+" DOESN't meet relevancy");
                         System.out.println("going to parent");
-                        ArrayList<WebpageNode> parents = currentNode.getParents();
+                        ArrayList<WebpageNode> parents = graph.getCurrentNode().getParents();
                         if( parents.isEmpty() ) {
                             // must be head node, reset
                             System.out.println("No parent, must be head node [THIS SHOULDN'T HAPPEN]");
-                            currentNode = webpageNodeHead;
+                            graph.setCurrentNode(webpageNodeHead);
                             loadNextPage();
                             return;
                         }
                         if( parents.size() == 1 ) {
-                            currentNode = parents.get(0);
+                            graph.setCurrentNode(parents.get(0));
                         } else {
-                            currentNode = parents.get((int)(Math.random()*(double)parents.size()));
+                            graph.setCurrentNode(parents.get((int)(Math.random()*(double)parents.size())));
                         }
-                        System.out.println("Chose parent: "+currentNode.getURL());
+                        System.out.println("Chose parent: "+graph.getCurrentNode().getURL());
                     }
                     loadNextPage();
                     System.out.println("Loading next page...");
@@ -310,8 +320,22 @@ public class WebpageManager {
         }
         System.out.println("Saving graph to file...");
         Platform.runLater(() -> {
-            text.setText("Saving graph to file...");
-            graph.saveFile("/Users/simonkenny/Desktop/crawler_scrshots/");
+            //SEARCH_PAGE_RELEVANCY = 6;//MAX_DISTANCE_FROM_HEAD_NODE
+            Date now = new Date();
+            long diff = now.getTime() - startTime.getTime();//as given
+            long minutes = TimeUnit.MILLISECONDS.toMinutes(diff);
+            text.setText("[v0.2.6] by Simon Kenny and Brendan Flynn - "
+                    +"Search page links("+SEARCH_PAGE_RELEVANCY+"), "
+                    +"Max distance("+MAX_DISTANCE_FROM_HEAD_NODE+") - "
+                    +(new SimpleDateFormat("yyyy-MM-dd HH:mm").format(now))
+                    +" [dur mins: "+minutes+"]"
+            );
+            // find root node
+            Node parent = graph.getParent();
+            while( parent.getParent() != null ) {
+                parent = parent.getParent();
+            }
+            Utils.saveScreenshot("/Users/simonkenny/Desktop/crawler_scrshots/v0.2.6/", parent);
         });
         try {
             Thread.sleep(3000);
@@ -325,21 +349,23 @@ public class WebpageManager {
     
     private void resetNodes() {
         synchronized(allNodes) {
-            currentNode = null;
+            graph.setCurrentNode(null);
             webpageNodeHead.getChildren().clear();
             allNodes.clear();
             allNodes.add(webpageNodeHead);
         }
-        currentNode = webpageNodeHead;
+        keywordMatching.resetMatchCounts();
+        graph.setCurrentNode(webpageNodeHead);
     }
     
     private void loadNextPage() {
+        //purgeIrrelevantNodes();
         lastSearchCount--;
         if( lastSearchCount <= 0 ) {
             System.out.println("------ WANDERED FAR ENOUGH, GOING BACK TO SEARCH");
-            currentNode = webpageNodeHead;
+            graph.setCurrentNode(webpageNodeHead);
         }
-        if( currentNode == webpageNodeHead ) {
+        if( graph.getCurrentNode() == webpageNodeHead ) {
             if( allNodes.size() > 1 ) {
                 if( lastSearchCount > 0 ) {
                     // make sure that no unvisited nodes
@@ -356,21 +382,28 @@ public class WebpageManager {
                         }
                     }
                     if( highestLevel > 0 ) {
-                        currentNode = unvisitedNode;
+                        graph.setCurrentNode(unvisitedNode);
                         loadNextPage();
                         return;
                     }
                     // else, no unvisited nodes
                 }
-                System.out.println("no unvisited nodes, prepare for reset");
+                System.out.println("no unvisited nodes, graph complete");
                 purgeAllBadNodes();
-                takeScreenShot();
+                if( allNodes.size() >= MIN_NODES_FOR_GOOD_GRAPH ) {
+                    System.out.println("num nodes ("+allNodes.size()+"), graph is good");
+                    takeScreenShot();
+                } else {
+                    System.out.println("num nodes ("+allNodes.size()+"), graph is bad");
+                }
+                System.out.println("reset graph");
                 resetNodes();
             }
-            currentNode = createNode(searchTermEngine.generateRandomSearchURL(), webpageNodeHead);
+            startTime = new Date();
+            graph.setCurrentNode(createNode(searchTermEngine.generateRandomSearchURL(), webpageNodeHead));
             lastSearchCount = MAX_WANDER_UNTIL_NEXT_SEARCH;
-            webpageNodeHead.addChild(currentNode);
-            currentNode.setMetrics(SEARCH_PAGE_RELEVANCY, 0); //instead of loadBoilerPipe
+            webpageNodeHead.addChild(graph.getCurrentNode());
+            graph.getCurrentNode().setMetrics(SEARCH_PAGE_RELEVANCY, 0); //instead of loadBoilerPipe
             return;
         } else {
             // purge irrelevant every mod
@@ -380,39 +413,39 @@ public class WebpageManager {
             }
         }
         // else, not search page
-        ArrayList<WebpageNode> children = currentNode.getChildren();
+        ArrayList<WebpageNode> children = graph.getCurrentNode().getChildren();
         for( WebpageNode node : children ) {
             if( !node.isVisited() ) {
-                currentNode = node;
-                System.out.println("selected new node: "+currentNode.getURL());
+                graph.setCurrentNode(node);
+                System.out.println("selected new node: "+graph.getCurrentNode().getURL());
                 loadBoilerpipe();
                 return;
             }
         }
         // else no match
-        System.out.println("No links, trying to go to parent of "+currentNode.getURL());
-        ArrayList<WebpageNode> parents = currentNode.getParents();
+        System.out.println("No links, trying to go to parent of "+graph.getCurrentNode().getURL());
+        ArrayList<WebpageNode> parents = graph.getCurrentNode().getParents();
         if( parents.isEmpty() ) {
             // must be head node, reset
             System.out.println("No parent, must be head node [THIS SHOULDN'T HAPPEN]");
             // just make sure
-            currentNode = webpageNodeHead;
+            graph.setCurrentNode(webpageNodeHead);
             loadNextPage();
             return;
         }
         if( parents.size() == 1 ) {
-            currentNode = parents.get(0);
+            graph.setCurrentNode(parents.get(0));
         } else {
-            currentNode = parents.get((int)(Math.random()*(double)parents.size()));
+            graph.setCurrentNode(parents.get((int)(Math.random()*(double)parents.size())));
         }
-        System.out.println("Chose parent: "+currentNode.getURL());
+        System.out.println("Chose parent: "+graph.getCurrentNode().getURL());
         // recurse with parent
         loadNextPage();
     }
     
     
     private void loadBoilerpipe() {
-        System.out.println("loadBoilerpipe: "+currentNode.getURL());
+        System.out.println("loadBoilerpipe: "+graph.getCurrentNode().getURL());
         (new Thread() {
             @Override
             public void run() {
@@ -420,7 +453,7 @@ public class WebpageManager {
                 int relevancyScore = 0;
                 try {
                     // boilerpipe
-                    String text = ArticleExtractor.INSTANCE.getText(new URL(currentNode.getURL()));
+                    String text = ArticleExtractor.INSTANCE.getText(new URL(graph.getCurrentNode().getURL()));
                     String lettersOnlyText = text.toLowerCase().replaceAll("[^A-Za-z\\s]+", "");
                     emotionalScore = nlp.scoreText(lettersOnlyText);
                     System.out.println("Emotional score: "+emotionalScore);
@@ -432,8 +465,8 @@ public class WebpageManager {
                 } catch (BoilerpipeProcessingException | MalformedURLException ex) {
                     Logger.getLogger(WebpageManager.class.getName()).log(Level.SEVERE, null, ex);
                 }
-                currentNode.setMetrics(relevancyScore, emotionalScore);
-                System.out.println("Set metrics for "+currentNode.getHashcode());
+                graph.getCurrentNode().setMetrics(relevancyScore, emotionalScore);
+                System.out.println("Set metrics for "+graph.getCurrentNode().getHashcode());
             }
         }).start();
     }
@@ -470,29 +503,40 @@ public class WebpageManager {
         // Based on example from http://jsoup.org/cookbook/extracting-data/example-list-links
         Document doc;
         try {
-            doc = Jsoup.connect(currentNode.getURL()).userAgent("Chrome").get();
+            doc = Jsoup.connect(graph.getCurrentNode().getURL()).userAgent("Chrome").get();
             Platform.runLater(() -> {
                 text.setText(trimString(doc.title(),STRING_TRIM_LEN)
-                        +"   ["+trimString(currentNode.getURL(),STRING_TRIM_LEN)+"]");
+                        +"   ["+trimString(graph.getCurrentNode().getURL(),STRING_TRIM_LEN)+"]");
             });
+            String title = trimString(doc.title().split("[-]")[0],150);
+            graph.getCurrentNode().setPageTitle(title);
+            graph.setCurrentPageTitle(title);
+            if( graph.getCurrentNode().getLevel() == 1 ) {
+                graph.setTitle(title);
+            }
             // get fav icon
             {
-                String []parts = currentNode.getURL().split("[/]");
-                String absFavIconURL = parts[0] + "//" + parts[2] + "/favicon.ico";
-                System.out.println("Loading favicon: "+absFavIconURL);
-                
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                InputStream is = new URL(absFavIconURL).openStream ();
-                List<BufferedImage> images = ICODecoder.read(is);
-                if( images.size() > 0 ) {
-                    for( BufferedImage image : images ) {
-                        Image fxImage = SwingFXUtils.toFXImage(image, null);
-                        System.out.println("Adding image to current node");
-                        currentNode.setFavIconImage(fxImage);
-                    }
-                } else {
+                String []parts = graph.getCurrentNode().getURL().split("[/]");
+                String absFavIconURL = parts[0] + "//" + parts[2];
+                try {
+                    graph.getCurrentNode().setFavIconImage(Utils.getFavIcon(absFavIconURL));
+                } catch (IOException ex) {
+                    Logger.getLogger(WebpageManager.class.getName()).log(Level.SEVERE, null, ex);
                     System.out.println("Couldn't get ICO file");
                 }
+                // add to domains
+                /*
+                List<String> domainData = DomainListData.getInstance().getDomains();
+                boolean match = false;
+                for( String domainStr : domainData ) {
+                    if( absFavIconURL.equals(domainStr) ) {
+                        match = true;
+                    }
+                }
+                if( !match ) {
+                    domainData.add(absFavIconURL);
+                }
+                        */
             }
             Elements links = doc.select("a[href]");
             if( links.size() > 0 ) {

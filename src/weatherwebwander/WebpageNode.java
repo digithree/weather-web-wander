@@ -30,6 +30,7 @@ public class WebpageNode {
     private int size = 1;
     private int color = 0;
     private boolean visited = false;
+    private String pageTitle;
     
     // gfx
     private final float CENTRAL_FORCE_FACTOR = 0.001f;
@@ -182,6 +183,14 @@ public class WebpageNode {
         this.favIconImage = favIconImage;
     }
     
+    public String getPageTitle() {
+        return pageTitle;
+    }
+
+    public void setPageTitle(String pageTitle) {
+        this.pageTitle = pageTitle;
+    }
+    
     // --- draw
     public void applyForces(ArrayList<WebpageNode> allNodes, float deltaTime) {
         vector = new PVector();
@@ -269,9 +278,13 @@ public class WebpageNode {
             // draw connections
             for( WebpageNode child : children ) {
                 if( child.pos != null ) {
-                    context.setStroke(Color.color(0.1, 0.1, 0.1, 0.1));
-                    context.setLineWidth(1);
-                    context.strokeLine(pos.x,pos.y,child.pos.x,child.pos.y);
+                    if( child.isVisited() ) {
+                        // DEBUG
+                        //context.setStroke(Color.color(0.1, 0.1, 0.1, 0.1));
+                        context.setStroke(Color.color(0.1, 0.1, 0.1, 0.3));
+                        context.setLineWidth(1);
+                        context.strokeLine(pos.x,pos.y,child.pos.x,child.pos.y);
+                    }
                 }
             }
         }
@@ -279,6 +292,10 @@ public class WebpageNode {
     
     public void drawNode(GraphicsContext context) {
         if( pos != null ) {
+            // DEBUG
+            if( !visited ) {
+                return;
+            }
             Color col = Color.color(0,0,1.f,0.7f);
             if( !unmoveable ) {
                 if( color < 0 ) {
@@ -323,7 +340,7 @@ public class WebpageNode {
             if( favIconImage != null ) {
                 //context.setFill(Color.WHITE);
                 //context.fillRect(pos.x+(ovalSize/2)+2, pos.y-9, 18, 18);
-                context.drawImage(favIconImage, pos.x+(ovalSize/2)+2, pos.y-8, 16, 16);
+                //context.drawImage(favIconImage, pos.x+(ovalSize/2)+2, pos.y-8, 16, 16);
             }
         }
     }

@@ -6,13 +6,27 @@
 
 package weatherwebwander;
 
+import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.embed.swing.SwingFXUtils;
+import javafx.scene.Node;
+import javafx.scene.SnapshotParameters;
+import javafx.scene.image.Image;
+import javafx.scene.image.WritableImage;
+import javafx.scene.paint.Color;
+import javax.imageio.ImageIO;
+import net.sf.image4j.codec.ico.ICODecoder;
 
 /**
  *
@@ -40,4 +54,51 @@ public class Utils {
         }
         return array;
     }
+    
+    private static int SAVED_FILE_COUNT = 0;
+    
+    public static void saveScreenshot(String filePath, Node node){
+        
+        if( filePath.charAt(filePath.length()-1) != '/' ) {
+            filePath = filePath.concat("/");
+        }
+        filePath = filePath.concat(String.format("SCR_SHOT_%03d.png", SAVED_FILE_COUNT++));
+        System.out.println("SCREENSHOT: trying to save scrshot: "+filePath);
+        File file = new File(filePath);
+        SnapshotParameters sp = new SnapshotParameters();
+        sp.setFill(Color.color(0.9, 0.9, 0.9));
+        WritableImage image = node.snapshot(sp, null);
+        try {
+            ImageIO.write(SwingFXUtils.fromFXImage(image,null),"png",file);
+            System.out.println("SCREENSHOT: file save success");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    
+    public static Image getFavIcon(String domainURL) throws IOException {
+        // get fav icon
+        String absFavIconURL = domainURL + "/favicon.ico";
+        System.out.println("DomainList: Loading favicon: "+absFavIconURL);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        InputStream is;
+        try {
+            is = new URL(absFavIconURL).openStream ();
+            List<BufferedImage> images = ICODecoder.read(is);
+            if( images.size() > 0 ) {
+                for( BufferedImage image : images ) {
+                    Image fxImage = SwingFXUtils.toFXImage(image, null);
+                    System.out.println("DomainList: Adding image to current node");
+                    return fxImage;
+                }
+            } else {
+                System.out.println("DomainList: Couldn't get ICO file");
+            }
+        } catch (MalformedURLException ex) {
+            Logger.getLogger(DomainList.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return null;
+    }
 }
+
