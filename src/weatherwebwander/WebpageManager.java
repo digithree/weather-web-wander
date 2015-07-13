@@ -8,9 +8,7 @@ package weatherwebwander;
 
 import de.l3s.boilerpipe.BoilerpipeProcessingException;
 import de.l3s.boilerpipe.extractors.ArticleExtractor;
-import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -19,16 +17,12 @@ import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.application.Platform;
-import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.Node;
-import javafx.scene.image.Image;
 import javafx.scene.text.Text;
-import net.sf.image4j.codec.ico.ICODecoder;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -41,14 +35,16 @@ import org.jsoup.select.Elements;
 public class WebpageManager {
     
     private final WebpageNode webpageNodeHead;
-    private final ArrayList<WebpageNode> allNodes = new ArrayList<WebpageNode>();
+    private final ArrayList<WebpageNode> allNodes = new ArrayList<>();
     
     private final SearchTerm searchTermEngine;
     
-    private KeywordMatching keywordMatching;
+    private final KeywordMatching keywordMatching;
     private final ForceDirectedGraphCanvas graph;
     
     private final NaturalLanguageProcessing nlp;
+    
+    private final DomainData domainData;
     
     private final int MAX_CONSECUTIVE_ERRORS = 10;
     private int consecutiveErrors = 0;
@@ -76,15 +72,18 @@ public class WebpageManager {
     private Date startTime;
     
     // Tweek parameters
-    private final int SEARCH_PAGE_RELEVANCY = MIN_RELEVANCY + 5;
-    private final int MAX_DISTANCE_FROM_HEAD_NODE = 5;
+    private final int SEARCH_PAGE_RELEVANCY = MIN_RELEVANCY + 1;
+    private final int MAX_DISTANCE_FROM_HEAD_NODE = 6;
+    
+    private final int LOADED_WEBPAGE_WAIT_TIME = 5000;
     
     
-    
-    public WebpageManager(KeywordMatching keywordMatching, ForceDirectedGraphCanvas graph, Text text) {
+    public WebpageManager(KeywordMatching keywordMatching, ForceDirectedGraphCanvas graph,
+            Text text, DomainData domainData) {
         this.keywordMatching = keywordMatching;
         this.graph = graph;
         this.text = text;
+        this.domainData = domainData;
         setupBlacklist();
         nlp = new NaturalLanguageProcessing();
         searchTermEngine = new SearchTerm();
@@ -128,7 +127,7 @@ public class WebpageManager {
                         System.out.println("currentnode is null, waiting...");
                         while(graph.getCurrentNode() == null ) {
                             try {
-                                Thread.sleep(1000);
+                                Thread.sleep(LOADED_WEBPAGE_WAIT_TIME);
                             } catch (InterruptedException ex) {
                                 Logger.getLogger(WebpageManager.class.getName()).log(Level.SEVERE, null, ex);
                             }
@@ -169,6 +168,29 @@ public class WebpageManager {
                     // finished
                     graph.getCurrentNode().setVisited(true);
                     if(links != null && graph.getCurrentNode().getRelevancy() >= MIN_RELEVANCY) {
+                        // add domain to list (also sets fav icon)
+                        // get fav icon
+                        try {
+                            // cut up URL
+                            String domainURL = Utils.getDomainFromURL(graph.getCurrentNode().getURL());
+                            // remove domain front and replace with WWW
+                            if( domainURL != null ) {
+                                int idx = domainData.addDomain(domainURL, graph.getCurrentNode().getRelevancy());
+                                graph.getCurrentNode().setFillCol(domainData.getColorForIdx(idx));
+                                /*
+                                try {
+                                    graph.getCurrentNode().setFavIconImage(Utils.getFavIcon(domainURL));
+                                } catch (IOException ex) {
+                                    Logger.getLogger(WebpageManager.class.getName()).log(Level.SEVERE, null, ex);
+                                    System.out.println("Couldn't get ICO file");
+                                }
+                                        */
+                            } else {
+                                System.out.println("DOMAIN URL IS NULL!");
+                            }
+                        } catch (MalformedURLException e ) {
+                            System.out.println("Malformed URL: "+e.getLocalizedMessage());
+                        }
                         System.out.println("addPageLinks");
                         System.out.println("page "+graph.getCurrentNode().getURL()+" meets relevancy");
                         if( graph.getCurrentNode().getChildren().size() > 0 ) {
@@ -335,7 +357,7 @@ public class WebpageManager {
             while( parent.getParent() != null ) {
                 parent = parent.getParent();
             }
-            Utils.saveScreenshot("/Users/simonkenny/Desktop/crawler_scrshots/v0.2.6/", parent);
+            Utils.saveScreenshot("/Users/simonkenny/Desktop/crawler_scrshots/v0.2.7/", parent);
         });
         try {
             Thread.sleep(3000);
@@ -355,6 +377,7 @@ public class WebpageManager {
             allNodes.add(webpageNodeHead);
         }
         keywordMatching.resetMatchCounts();
+        domainData.reset();
         graph.setCurrentNode(webpageNodeHead);
     }
     
@@ -513,30 +536,6 @@ public class WebpageManager {
             graph.setCurrentPageTitle(title);
             if( graph.getCurrentNode().getLevel() == 1 ) {
                 graph.setTitle(title);
-            }
-            // get fav icon
-            {
-                String []parts = graph.getCurrentNode().getURL().split("[/]");
-                String absFavIconURL = parts[0] + "//" + parts[2];
-                try {
-                    graph.getCurrentNode().setFavIconImage(Utils.getFavIcon(absFavIconURL));
-                } catch (IOException ex) {
-                    Logger.getLogger(WebpageManager.class.getName()).log(Level.SEVERE, null, ex);
-                    System.out.println("Couldn't get ICO file");
-                }
-                // add to domains
-                /*
-                List<String> domainData = DomainListData.getInstance().getDomains();
-                boolean match = false;
-                for( String domainStr : domainData ) {
-                    if( absFavIconURL.equals(domainStr) ) {
-                        match = true;
-                    }
-                }
-                if( !match ) {
-                    domainData.add(absFavIconURL);
-                }
-                        */
             }
             Elements links = doc.select("a[href]");
             if( links.size() > 0 ) {

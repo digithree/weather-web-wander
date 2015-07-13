@@ -81,24 +81,43 @@ public class Utils {
         // get fav icon
         String absFavIconURL = domainURL + "/favicon.ico";
         System.out.println("DomainList: Loading favicon: "+absFavIconURL);
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
         InputStream is;
         try {
             is = new URL(absFavIconURL).openStream ();
             List<BufferedImage> images = ICODecoder.read(is);
             if( images.size() > 0 ) {
                 for( BufferedImage image : images ) {
-                    Image fxImage = SwingFXUtils.toFXImage(image, null);
-                    System.out.println("DomainList: Adding image to current node");
-                    return fxImage;
+                    if( image != null ) {
+                        Image fxImage = SwingFXUtils.toFXImage(image, null);
+                        System.out.println("DomainList: Adding image to current node");
+                        return fxImage;
+                    }
                 }
             } else {
                 System.out.println("DomainList: Couldn't get ICO file");
             }
         } catch (MalformedURLException ex) {
-            Logger.getLogger(DomainList.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Utils.class.getName()).log(Level.SEVERE, null, ex);
         }
         return null;
+    }
+    
+    public static String getDomainFromURL(String URL) throws MalformedURLException {
+        // cut "http:" or "https:" from rest
+        System.out.println("getDomainFromURL: url = "+URL);
+        String []parts = URL.split("[//]");
+        for( int i = 0 ; i < parts.length ; i++ ) {
+            System.out.println("getDomainFromURL: parts["+i+"] = "+parts[i]);
+        }
+        // remove domain front and replace with WWW
+        if( parts.length >= 2 ) {
+            String domainURL = parts[2].split("[/]")[0];
+            System.out.println("getDomainFromURL: parts[2].split(\"[/]\")[0] = "+parts[1].split("[/]")[0]);
+            System.out.println("getDomainFromURL: return: "+"http://"+domainURL);
+            return "http://"+domainURL;
+        }
+        // else malformed
+        throw new MalformedURLException();
     }
 }
 

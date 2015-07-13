@@ -36,7 +36,8 @@ public class WeatherWebWander extends Application {
     private KeywordMatching keywordMatching;
     private KeywordHistogramChart keywordHistogramChart;
     
-    //private DomainList domainList;
+    private DomainData domainData;
+    private DomainIconsGraph domainIconsGraph;
     
     
     
@@ -61,12 +62,23 @@ public class WeatherWebWander extends Application {
         keywordMatching = new KeywordMatching();
         keywordHistogramChart = new KeywordHistogramChart(pane, keywordMatching);
         
-        Pane pane2 = new Pane();
-        //domainList = new DomainList(pane2);
+        domainData = new DomainData();
+        domainIconsGraph = new DomainIconsGraph(domainData);
+        AnchorPane domainIconsGraphCanvasContainer = new AnchorPane();
+        AnchorPane.setTopAnchor(domainIconsGraph, 0.0);
+        AnchorPane.setBottomAnchor(domainIconsGraph, 0.0);
+        AnchorPane.setLeftAnchor(domainIconsGraph, 0.0);
+        AnchorPane.setRightAnchor(domainIconsGraph, 0.0);
+        domainIconsGraphCanvasContainer.getChildren().add(domainIconsGraph);
+        SplitPane.setResizableWithParent(domainIconsGraphCanvasContainer, true);
+        domainIconsGraph.widthProperty().bind(
+                       domainIconsGraphCanvasContainer.widthProperty());
+        domainIconsGraph.heightProperty().bind(
+                       domainIconsGraphCanvasContainer.heightProperty());
         
         SplitPane analysisSplitPane = new SplitPane();
         analysisSplitPane.setOrientation(Orientation.VERTICAL);
-        analysisSplitPane.getItems().addAll(pane, pane2);
+        analysisSplitPane.getItems().addAll(pane, domainIconsGraphCanvasContainer);
         analysisSplitPane.setDividerPositions(0.6f,0.4f);
         
         SplitPane graphsSplitPane = new SplitPane();
@@ -82,7 +94,8 @@ public class WeatherWebWander extends Application {
         masterPane.getItems().addAll(graphsSplitPane, text);
         //masterPane.setDividerPositions(0.35f,0.65f);
         
-        webpageManager = new WebpageManager(keywordMatching, (ForceDirectedGraphCanvas)forceDirectedGraphCanvas, text);
+        webpageManager = new WebpageManager(keywordMatching, (ForceDirectedGraphCanvas)forceDirectedGraphCanvas,
+                text, domainData);
 
         // create the scene
         primaryStage.setTitle("Web View - Press escape to exit");
@@ -96,7 +109,7 @@ public class WeatherWebWander extends Application {
                     System.out.println("EXITING");
                     webpageManager.prepareForExit();
                     keywordHistogramChart.prepareForExit();
-                    //domainList.prepareForExit();
+                    domainIconsGraph.prepareForExit();
                     primaryStage.close();
                 } else {
                     //handleKey(t.getCode());

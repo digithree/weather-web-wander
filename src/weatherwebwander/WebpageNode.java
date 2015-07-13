@@ -6,7 +6,7 @@
 
 package weatherwebwander;
 
-import java.util.ArrayList;
+import java.util.ArrayList; 
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
@@ -60,11 +60,15 @@ public class WebpageNode {
     private int level = 0;
     
     private Image favIconImage;
-    
+    private Color fillCol;
     
     
     public int getLevel() {
         return level;
+    }
+    
+    public void setFillCol(Color col) {
+        fillCol = col;
     }
     
     public WebpageNode(String URL) {
@@ -89,7 +93,7 @@ public class WebpageNode {
         if( !parents.contains(parent) ) {
             System.out.println("["+getHashcode()+"] Added parent ("+parent.getHashcode()+")");
             parents.add(parent);
-            // move node pos close to parent if not first parent
+            // move node pos close to parent if first parent
             if( parents.size() == 1 ) {
                 level = parent.getLevel() + 1;
                 float angle = (float)Math.random()*((float)Math.PI*2.f);
@@ -210,19 +214,19 @@ public class WebpageNode {
     
     public void applyMovement( float deltaTime ) {
         for( WebpageNode node : allConnections ) {
-            applyAttraction( node, deltaTime ,FORCE_FACTOR, EQUILIBRIUM_DIST, false);
+            if( node.isVisited() ) { 
+                applyAttraction( node, deltaTime ,FORCE_FACTOR, EQUILIBRIUM_DIST, false);
+            }
         }
-        //pos.add(vector);
     }
 
     public void applyUniversalWeakReplusion( ArrayList<WebpageNode> allNodes, float deltaTime ) {
         for( WebpageNode node : allNodes ) {
-            if( node != this ) {
+            if( node != this && node.isVisited() ) {
                 //applyAttraction( node, deltaTime, FORCE_FACTOR * 0.01, EQUILIBRIUM_DIST * 3 );
                 applyReplusion( node, deltaTime, FORCE_FACTOR * 2000000 );
             }
         }
-        //pos.add(vector);	
     }
     
     public void applyUniversalCenterAttraction( WebpageNode centerNode, float deltaTime ) {
@@ -296,7 +300,11 @@ public class WebpageNode {
             if( !visited ) {
                 return;
             }
-            Color col = Color.color(0,0,1.f,0.7f);
+            Color col = Color.color(0.5, 0.5, 0.5, 0.7);
+            if( fillCol != null ) {
+                col = Color.color(fillCol.getRed(), fillCol.getGreen(), fillCol.getBlue(), 0.7);
+            }
+            /*
             if( !unmoveable ) {
                 if( color < 0 ) {
                     float val = (float)-(color<=MAX_EMOTION?color:MAX_EMOTION) / (float)MAX_EMOTION;
@@ -312,6 +320,10 @@ public class WebpageNode {
                     col = Color.color(0,val,1.f-val,0.7f);
                 }
             } else {
+                col = Color.BLACK;
+            }
+            */
+            if( unmoveable ) {
                 col = Color.BLACK;
             }
             context.setFill(col);
@@ -337,10 +349,10 @@ public class WebpageNode {
             }
                     */
             // favicon
-            if( favIconImage != null ) {
+            if( favIconImage != null && this.relevancy >= MIN_RELEVANCY ) {
                 //context.setFill(Color.WHITE);
                 //context.fillRect(pos.x+(ovalSize/2)+2, pos.y-9, 18, 18);
-                //context.drawImage(favIconImage, pos.x+(ovalSize/2)+2, pos.y-8, 16, 16);
+                context.drawImage(favIconImage, pos.x+(ovalSize/2)+2, pos.y-8, 16, 16);
             }
         }
     }

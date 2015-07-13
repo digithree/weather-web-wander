@@ -30,6 +30,7 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
     private String title;
     
     private WebpageNode currentNode;
+    private WebpageNode displayNode;
     private String currentPageTitle;
     private PVector crossHairsPos = new PVector();
     
@@ -57,6 +58,7 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
     
     
     public void setCurrentNode(WebpageNode currentNode) {
+        displayNode = this.currentNode;
         this.currentNode = currentNode;
     }
     
@@ -124,7 +126,9 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
     public void update(float deltaTime) {
         if( allNodes != null ) {
             for( WebpageNode node : allNodes ) {
-                node.applyForces(allNodes, deltaTime*GLOBAL_TIME_FACTOR);
+                //if( node.isVisited() ) {
+                    node.applyForces(allNodes, deltaTime*GLOBAL_TIME_FACTOR);
+                //}
             }
         }
         updateCrossHairs();
@@ -132,8 +136,8 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
     }
     
     private void updateCrossHairs() {
-        if( currentNode != null ) {
-            PVector attract = new PVector( currentNode.getPos().x, currentNode.getPos().y );
+        if( displayNode != null ) {
+            PVector attract = new PVector( displayNode.getPos().x, displayNode.getPos().y );
             attract.sub( crossHairsPos );
 
             float actualForce = attract.mag() * 0.1f;
