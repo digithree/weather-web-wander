@@ -19,7 +19,7 @@ import weatherwebwander.genalgo.GenAlgoRunner;
  */
 public class DomainIconsGraph extends GraphCanvas {
     
-    private final int CONTAINER_SIZE = 280;
+    private final int CONTAINER_SIZE = 180;
     
     private final DomainData domainData;
     private final SquareLayoutParams params;

@@ -19,9 +19,9 @@ public class WebpageNode {
     
     public final static String HEAD_NODE_STRING = "[none]";
     
-    private ArrayList<WebpageNode> parents = new ArrayList<WebpageNode>();
-    private ArrayList<WebpageNode> children = new ArrayList<WebpageNode>();
-    private ArrayList<WebpageNode> allConnections = new ArrayList<WebpageNode>();
+    private final ArrayList<WebpageNode> parents = new ArrayList<>();
+    private final ArrayList<WebpageNode> children = new ArrayList<>();
+    private final ArrayList<WebpageNode> allConnections = new ArrayList<>();
     
     private String URL;
     private boolean metricsSet = false;
@@ -38,7 +38,7 @@ public class WebpageNode {
     
     private final float FORCE_FACTOR = 0.005f;
     private final float ENTROPY_FACTOR = 0.0f;
-    private final float EQUILIBRIUM_DIST = 5.f;
+    private float EQUILIBRIUM_DIST = 5.f;
     private final float MAX_VEL = 2.f;
     private final float MAX_VECTOR_MAG = 4.f;
     //private final float MIN_DIST_FOR_FORCE = 2.f;
@@ -77,7 +77,7 @@ public class WebpageNode {
     
     // --- family
     public void addChild( WebpageNode child ) {
-        if( this != child && !children.contains(child) ) {
+        if( this != child && !children.contains(child) && !parents.contains(child) ) {
             if( this.getHashcode() != child.getHashcode() ) {
                 System.out.println("["+getHashcode()+"] Added child ("+child.getHashcode()+")");
                 children.add(child);
@@ -130,6 +130,11 @@ public class WebpageNode {
         this.size = relevancy + 1;
         //mass = (1.f / (float)size) * 0.1f;
         //mass = 1.f;
+        int adjustRelevancy = relevancy - WebpageManager.MIN_RELEVANCY;
+        if( adjustRelevancy < 0 ) {
+            adjustRelevancy = 0;
+        }
+        mass = 0.05f + (adjustRelevancy * 0.005f);
         
         this.emotion = emotion;
         color = emotion;
@@ -195,6 +200,10 @@ public class WebpageNode {
         this.pageTitle = pageTitle;
     }
     
+    public boolean isUnmoveable() {
+        return unmoveable;
+    }
+    
     // --- draw
     public void applyForces(ArrayList<WebpageNode> allNodes, float deltaTime) {
         vector = new PVector();
@@ -213,16 +222,22 @@ public class WebpageNode {
     // primary force functions
     
     public void applyMovement( float deltaTime ) {
+        int numAttractors = 0;
         for( WebpageNode node : allConnections ) {
-            if( node.isVisited() ) { 
-                applyAttraction( node, deltaTime ,FORCE_FACTOR, EQUILIBRIUM_DIST, false);
+            if( node.isVisited() && !node.isUnmoveable()) { 
+                numAttractors++;
+            }
+        }
+        for( WebpageNode node : allConnections ) {
+            if( node.isVisited() && !node.isUnmoveable()) { 
+                applyAttraction( node, deltaTime ,(FORCE_FACTOR*1.5f)/numAttractors, EQUILIBRIUM_DIST, false);
             }
         }
     }
 
     public void applyUniversalWeakReplusion( ArrayList<WebpageNode> allNodes, float deltaTime ) {
         for( WebpageNode node : allNodes ) {
-            if( node != this && node.isVisited() ) {
+            if( node != this && node.isVisited()) {
                 //applyAttraction( node, deltaTime, FORCE_FACTOR * 0.01, EQUILIBRIUM_DIST * 3 );
                 applyReplusion( node, deltaTime, FORCE_FACTOR * 2000000 );
             }
@@ -251,6 +266,8 @@ public class WebpageNode {
         attract.normalize();
         attract.mult(actualForce);
 
+        //attract.mult(1.f-(mass*other.mass));
+        
         entropy.mult(ENTROPY_FACTOR);
 
         attract.sub(entropy);
@@ -278,7 +295,7 @@ public class WebpageNode {
     }
     
     public void drawConnections(GraphicsContext context) {
-        if( pos != null ) {
+        if( pos != null && !unmoveable ) {
             // draw connections
             for( WebpageNode child : children ) {
                 if( child.pos != null ) {
@@ -297,34 +314,13 @@ public class WebpageNode {
     public void drawNode(GraphicsContext context) {
         if( pos != null ) {
             // DEBUG
-            if( !visited ) {
+            if( !visited || unmoveable) {
                 return;
             }
             Color col = Color.color(0.5, 0.5, 0.5, 0.7);
             if( fillCol != null ) {
-                col = Color.color(fillCol.getRed(), fillCol.getGreen(), fillCol.getBlue(), 0.7);
-            }
-            /*
-            if( !unmoveable ) {
-                if( color < 0 ) {
-                    float val = (float)-(color<=MAX_EMOTION?color:MAX_EMOTION) / (float)MAX_EMOTION;
-                    if( val > 1.f ) {
-                        val = 1.f;
-                    }
-                    col = Color.color(val,0,1.f-val,0.7f);
-                } else if( color > 0 ) {
-                    float val = (float)(color<=MAX_EMOTION?color:MAX_EMOTION) / (float)MAX_EMOTION;
-                    if( val > 1.f ) {
-                        val = 1.f;
-                    }
-                    col = Color.color(0,val,1.f-val,0.7f);
-                }
-            } else {
-                col = Color.BLACK;
-            }
-            */
-            if( unmoveable ) {
-                col = Color.BLACK;
+                //col = Color.color(fillCol.getRed(), fillCol.getGreen(), fillCol.getBlue(), 0.7);
+                col = fillCol;
             }
             context.setFill(col);
             context.setStroke(Color.WHITE);

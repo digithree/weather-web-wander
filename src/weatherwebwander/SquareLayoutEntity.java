@@ -143,9 +143,16 @@ public class SquareLayoutEntity implements GenAlgoEntity {
         }
         // overlap area
         double overlapArea = 0;
+        double overlapAreaRelativeToSmallest = 0;
         for( int j = 0 ; j < params.numSquares ; j++ ) {
             for( int i = j+1 ; i < params.numSquares ; i++ ) {
-                overlapArea += intersection(j, i);
+                double intersectionArea = intersection(j, i);
+                if( usedSpaceArea[i] > usedSpaceArea[j] ) {
+                    overlapAreaRelativeToSmallest += (intersectionArea / usedSpaceArea[j]);
+                } else {
+                    overlapAreaRelativeToSmallest += (intersectionArea / usedSpaceArea[i]);
+                }
+                overlapArea += intersectionArea;
             }
         }
         
@@ -162,8 +169,16 @@ public class SquareLayoutEntity implements GenAlgoEntity {
         //if( overlapArea > containerSizeSq ) {
         //	overlapArea = containerSizeSq;
         //}
-        double overlap = overlapArea / (totalUsedSpaceArea - overlapArea);
+        
+        
+        // OLD OVERLAP
+        //double overlap = overlapArea / (totalUsedSpaceArea - overlapArea);
+        //double overlapFitness = 1 - overlap;
+        
+        // NEW OVERLAP
+        double overlap = overlapAreaRelativeToSmallest / (double)params.numSquares;
         double overlapFitness = 1 - overlap;
+        
         // used space fitness
         totalUsedSpaceArea -= overlapArea;
         if( totalUsedSpaceArea > containerSizeSq ) {

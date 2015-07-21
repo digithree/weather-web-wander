@@ -9,6 +9,7 @@ package weatherwebwander;
 import java.util.ArrayList;
 import javafx.animation.AnimationTimer;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 
 /**
@@ -32,7 +33,10 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
     private WebpageNode currentNode;
     private WebpageNode displayNode;
     private String currentPageTitle;
+    private String currentPageDomain;
     private PVector crossHairsPos = new PVector();
+    
+    private Image currentFavicon;
     
     public ForceDirectedGraphCanvas() {
         super();
@@ -64,6 +68,15 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
     
     public void setCurrentPageTitle(String currentPageTitle) {
         this.currentPageTitle = currentPageTitle;
+    }
+    
+    public void setCurrentPageDomain(String currentPageDomain) {
+        System.out.println("Setting crosshair domain favicon to "+currentPageDomain);
+        this.currentPageDomain = currentPageDomain;
+    }
+    
+    public void setCurrentFavicon(Image favicon) {
+        currentFavicon = favicon;
     }
     
     public WebpageNode getCurrentNode() {
@@ -106,7 +119,6 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
     public void draw() {
         GraphicsContext context = getGraphicsContext2D();
         context.clearRect(0, 0, getWidth(), getHeight());
-        drawCrossHairs(context);
         if( allNodes != null ) {
             for( WebpageNode node : allNodes ) {
                 node.drawConnections(context);
@@ -119,8 +131,9 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
         }
         if( title != null ) {
             context.setFill(Color.BLACK);
-            context.fillText(title, 20, 20);
+            context.fillText("Search: "+title, 20, 20);
         }
+        drawCrossHairs(context);
     }
     
     public void update(float deltaTime) {
@@ -157,6 +170,15 @@ public class ForceDirectedGraphCanvas extends GraphCanvas {
                 //context.setFill(Color.DARKGRAY);
                 context.setFill(Color.BLACK);
                 context.fillText(currentPageTitle, 20, crossHairsPos.y - 10);
+            }
+            int offset = 0;
+            if( currentFavicon != null ) {
+                context.drawImage(currentFavicon, 20, crossHairsPos.y + 10, 16, 16);
+                offset += 20;
+            }
+            if( currentPageDomain != null ) {
+                context.setFill(Color.BLACK);
+                context.fillText(currentPageDomain, 20 + offset, crossHairsPos.y + 20);
             }
         }
     }

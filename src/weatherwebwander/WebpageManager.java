@@ -17,6 +17,7 @@ import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -42,7 +43,7 @@ public class WebpageManager {
     private final KeywordMatching keywordMatching;
     private final ForceDirectedGraphCanvas graph;
     
-    private final NaturalLanguageProcessing nlp;
+    //private final NaturalLanguageProcessing nlp;
     
     private final DomainData domainData;
     
@@ -52,7 +53,7 @@ public class WebpageManager {
     private final int BASE_LINKS_TO_EXTRACT = 3;
     private final int MAX_LINKS = 15;
     
-    private final int MIN_RELEVANCY = 3;
+    public static final int MIN_RELEVANCY = 3;
     
     private final String blackListFile = "blacklist.csv";
     private String []blacklist;
@@ -73,21 +74,30 @@ public class WebpageManager {
     
     // Tweek parameters
     private final int SEARCH_PAGE_RELEVANCY = MIN_RELEVANCY + 1;
-    private final int MAX_DISTANCE_FROM_HEAD_NODE = 6;
+    private final int MAX_DISTANCE_FROM_HEAD_NODE = 5;
     
-    private final int LOADED_WEBPAGE_WAIT_TIME = 5000;
+    //private final int LOADED_WEBPAGE_WAIT_TIME = 5000;
+    private final int LOADED_WEBPAGE_WAIT_TIME = 50;
+    
+    private final BestURLLearner bestURLLearner;
+    
+    private final String screenShotSavePath;
     
     
     public WebpageManager(KeywordMatching keywordMatching, ForceDirectedGraphCanvas graph,
-            Text text, DomainData domainData) {
+            Text text, DomainData domainData, BestURLLearner bestURLLearner,
+            String screenShotSavePath) {
         this.keywordMatching = keywordMatching;
         this.graph = graph;
         this.text = text;
         this.domainData = domainData;
+        this.bestURLLearner = bestURLLearner;
+        this.screenShotSavePath = screenShotSavePath;
         setupBlacklist();
-        nlp = new NaturalLanguageProcessing();
+        //nlp = new NaturalLanguageProcessing();
         searchTermEngine = new SearchTerm();
         keywordMatching = new KeywordMatching();
+        bestURLLearner = new BestURLLearner();
         webpageNodeHead = createNode(WebpageNode.HEAD_NODE_STRING,null);
         graph.setCurrentNode(webpageNodeHead);
         // let graph displayer know about nodes
@@ -177,9 +187,11 @@ public class WebpageManager {
                             if( domainURL != null ) {
                                 int idx = domainData.addDomain(domainURL, graph.getCurrentNode().getRelevancy());
                                 graph.getCurrentNode().setFillCol(domainData.getColorForIdx(idx));
+                                graph.setCurrentFavicon(domainData.getFavicon(domainURL));
+                                //graph.setCurrentPageDomain(domainURL);
                                 /*
                                 try {
-                                    graph.getCurrentNode().setFavIconImage(Utils.getFavIcon(domainURL));
+                                    graph.setCurrentFavicon(Utils.getFavIcon(domainURL));
                                 } catch (IOException ex) {
                                     Logger.getLogger(WebpageManager.class.getName()).log(Level.SEVERE, null, ex);
                                     System.out.println("Couldn't get ICO file");
@@ -200,11 +212,6 @@ public class WebpageManager {
                         } else {
                             if( links.length > 0 ) {
                                 System.out.println("Adding children to currentNode");
-                                boolean []usedLinks = new boolean[links.length];
-                                for( int i = 0 ; i < usedLinks.length ; i++ ) {
-                                    usedLinks[i] = false;
-                                }
-                                int MAX_TRIES = 10;
                                 int numLinksToExtract = BASE_LINKS_TO_EXTRACT
                                         + (graph.getCurrentNode().getRelevancy() - MIN_RELEVANCY);
                                 if( numLinksToExtract > MAX_LINKS ) {
@@ -213,34 +220,23 @@ public class WebpageManager {
                                 if( numLinksToExtract > links.length ) {
                                     numLinksToExtract = links.length;
                                 }
-                                System.out.println("Adding "+numLinksToExtract+" links");
-                                for( int i = 0 ; i < numLinksToExtract ; i++ ) {
-                                    boolean foundLink = false;
-                                    for( int j = 0 ; j < MAX_TRIES ; j++ ) {
-                                        int idx = (int)(Math.random()*(double)links.length);
-                                        if( !usedLinks[idx] ) {
-                                            foundLink = true;
-                                            String link = links[idx];
-                                            int linkHash = link.hashCode();
-                                            boolean match = false;
-                                            for( WebpageNode node : allNodes ) {
-                                                if( node.getHashcode() == linkHash ) {
-                                                    // link already exists, join
-                                                    graph.getCurrentNode().addChild(node);
-                                                    match = true;
-                                                    break;
-                                                }
-                                            }
-                                            if( !match ) {
-                                                // link is new, create new node
-                                                graph.getCurrentNode().addChild(createNode(link, graph.getCurrentNode()));
-                                            }
-                                            usedLinks[idx] = true;
+                                System.out.println("Num links target is "+numLinksToExtract);
+                                List<String> bestLinks = bestURLLearner.processHyperlinks(links,numLinksToExtract);
+                                System.out.println("Num best links is"+bestLinks.size());
+                                for( String link : bestLinks ) {
+                                    int linkHash = link.hashCode();
+                                    boolean match = false;
+                                    for( WebpageNode node : allNodes ) {
+                                        if( node.getHashcode() == linkHash ) {
+                                            // link already exists, join
+                                            graph.getCurrentNode().addChild(node);
+                                            match = true;
                                             break;
                                         }
                                     }
-                                    if( !foundLink ) {
-                                        break;
+                                    if( !match ) {
+                                        // link is new, create new node
+                                        graph.getCurrentNode().addChild(createNode(link, graph.getCurrentNode()));
                                     }
                                 }
                             }
@@ -346,7 +342,7 @@ public class WebpageManager {
             Date now = new Date();
             long diff = now.getTime() - startTime.getTime();//as given
             long minutes = TimeUnit.MILLISECONDS.toMinutes(diff);
-            text.setText("[v0.2.6] by Simon Kenny and Brendan Flynn - "
+            text.setText("[v0.2.8] by Simon Kenny and Brendan Flynn - "
                     +"Search page links("+SEARCH_PAGE_RELEVANCY+"), "
                     +"Max distance("+MAX_DISTANCE_FROM_HEAD_NODE+") - "
                     +(new SimpleDateFormat("yyyy-MM-dd HH:mm").format(now))
@@ -357,7 +353,7 @@ public class WebpageManager {
             while( parent.getParent() != null ) {
                 parent = parent.getParent();
             }
-            Utils.saveScreenshot("/Users/simonkenny/Desktop/crawler_scrshots/v0.2.7/", parent);
+            Utils.saveScreenshot(screenShotSavePath, parent);
         });
         try {
             Thread.sleep(3000);
@@ -427,6 +423,7 @@ public class WebpageManager {
             lastSearchCount = MAX_WANDER_UNTIL_NEXT_SEARCH;
             webpageNodeHead.addChild(graph.getCurrentNode());
             graph.getCurrentNode().setMetrics(SEARCH_PAGE_RELEVANCY, 0); //instead of loadBoilerPipe
+            graph.getCurrentNode().setUnmoveable(true);
             return;
         } else {
             // purge irrelevant every mod
@@ -478,7 +475,7 @@ public class WebpageManager {
                     // boilerpipe
                     String text = ArticleExtractor.INSTANCE.getText(new URL(graph.getCurrentNode().getURL()));
                     String lettersOnlyText = text.toLowerCase().replaceAll("[^A-Za-z\\s]+", "");
-                    emotionalScore = nlp.scoreText(lettersOnlyText);
+                    //emotionalScore = nlp.scoreText(lettersOnlyText);
                     System.out.println("Emotional score: "+emotionalScore);
                     String relevancyText = text.toLowerCase().replaceAll("[^A-Za-z0-9\\s-':()]+", "");
                     relevancyScore = keywordMatching.checkNumberOfWordsUsed(relevancyText);
@@ -489,6 +486,7 @@ public class WebpageManager {
                     Logger.getLogger(WebpageManager.class.getName()).log(Level.SEVERE, null, ex);
                 }
                 graph.getCurrentNode().setMetrics(relevancyScore, emotionalScore);
+                bestURLLearner.learnFromURL(graph.getCurrentNode().getURL(), relevancyScore);
                 System.out.println("Set metrics for "+graph.getCurrentNode().getHashcode());
             }
         }).start();
@@ -534,6 +532,13 @@ public class WebpageManager {
             String title = trimString(doc.title().split("[-]")[0],150);
             graph.getCurrentNode().setPageTitle(title);
             graph.setCurrentPageTitle(title);
+            graph.setCurrentPageDomain(
+                        Domain.createCleanName(
+                                Utils.getDomainFromURL(
+                                    graph.getCurrentNode().getURL()
+                            )
+                    )
+            );
             if( graph.getCurrentNode().getLevel() == 1 ) {
                 graph.setTitle(title);
             }

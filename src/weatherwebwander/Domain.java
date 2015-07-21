@@ -43,7 +43,7 @@ public class Domain {
     
     // clean name helpers
     
-    private String createCleanName(String URL) {
+    public static String createCleanName(String URL) {
         String domainName;
         String []parts = URL.split("[.]");
         if( parts.length >= 3 ) {

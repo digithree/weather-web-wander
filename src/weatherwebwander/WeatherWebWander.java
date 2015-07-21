@@ -6,7 +6,10 @@
 
 package weatherwebwander;
 
+import java.util.Optional;
+import java.util.prefs.Preferences;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.event.EventHandler;
 import javafx.geometry.Orientation;
 import javafx.scene.Scene;
@@ -20,12 +23,15 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
+import org.controlsfx.dialog.Dialogs;
 
 /**
  *
  * @author simonkenny
  */
 public class WeatherWebWander extends Application {
+    
+    private final String PREF_PATH = "WWW_SCRSHOT_PATH";
     
     private Scene scene;
     
@@ -39,10 +45,44 @@ public class WeatherWebWander extends Application {
     private DomainData domainData;
     private DomainIconsGraph domainIconsGraph;
     
+    private BestURLLearner bestURLLearner;
+    private URLWordHistogramChart wordHistogramChart;
     
+    
+    private String path;
     
     @Override
     public void start(Stage primaryStage) throws Exception {
+        
+        Preferences prefs = Preferences.userNodeForPackage(WeatherWebWander.class);
+        // UNCOMMENT THIS IF YOU WANT TO RESET THE VIDEOS
+        //prefs.remove(PREF_PATH);
+        path = prefs.get(PREF_PATH, null);
+        if( path == null ) {
+            // do first time stuff
+            Optional<String> response = Dialogs.create()
+                    .owner(primaryStage)
+                    .title("First time setup")
+                    .masthead("Please choose where you would like to save screenshots")
+                    .message("Path:")
+                    .showTextInput();
+            // One way to get the response value.
+            if (response.isPresent()) {
+                path = response.get();
+            }
+            if( path == null ) {
+                // error
+                Dialogs.create()
+                        .owner(null)
+                        .title("Error")
+                        .masthead("Invalid path")
+                        .message("Couldn't add path, please restart and re-enter")
+                        .showError();
+                Platform.exit();
+                return;
+            }
+            prefs.put(PREF_PATH, path);
+        }
         
         
         forceDirectedGraphCanvas = new ForceDirectedGraphCanvas();
@@ -58,13 +98,19 @@ public class WeatherWebWander extends Application {
         forceDirectedGraphCanvas.heightProperty().bind(
                        graphCanvasContainer.heightProperty());
         
-        Pane pane = new Pane();
+        Pane pane1 = new Pane();
         keywordMatching = new KeywordMatching();
-        keywordHistogramChart = new KeywordHistogramChart(pane, keywordMatching);
+        keywordHistogramChart = new KeywordHistogramChart(pane1, keywordMatching);
+        
+        Pane pane2 = new Pane();
+        bestURLLearner = new BestURLLearner();
+        wordHistogramChart = new URLWordHistogramChart(pane2, bestURLLearner);
         
         domainData = new DomainData();
         domainIconsGraph = new DomainIconsGraph(domainData);
+        
         AnchorPane domainIconsGraphCanvasContainer = new AnchorPane();
+        domainIconsGraphCanvasContainer.setMaxHeight(200);
         AnchorPane.setTopAnchor(domainIconsGraph, 0.0);
         AnchorPane.setBottomAnchor(domainIconsGraph, 0.0);
         AnchorPane.setLeftAnchor(domainIconsGraph, 0.0);
@@ -78,8 +124,9 @@ public class WeatherWebWander extends Application {
         
         SplitPane analysisSplitPane = new SplitPane();
         analysisSplitPane.setOrientation(Orientation.VERTICAL);
-        analysisSplitPane.getItems().addAll(pane, domainIconsGraphCanvasContainer);
-        analysisSplitPane.setDividerPositions(0.6f,0.4f);
+        analysisSplitPane.getItems().addAll(pane1, pane2, domainIconsGraphCanvasContainer);
+        //analysisSplitPane.getItems().addAll(pane1, pane2, domainIconsGraph);
+        analysisSplitPane.setDividerPositions(0.37f,0.37f,0.26f);
         
         SplitPane graphsSplitPane = new SplitPane();
         graphsSplitPane.setOrientation(Orientation.HORIZONTAL);
@@ -95,7 +142,7 @@ public class WeatherWebWander extends Application {
         //masterPane.setDividerPositions(0.35f,0.65f);
         
         webpageManager = new WebpageManager(keywordMatching, (ForceDirectedGraphCanvas)forceDirectedGraphCanvas,
-                text, domainData);
+                text, domainData, bestURLLearner, path);
 
         // create the scene
         primaryStage.setTitle("Web View - Press escape to exit");
@@ -109,6 +156,7 @@ public class WeatherWebWander extends Application {
                     System.out.println("EXITING");
                     webpageManager.prepareForExit();
                     keywordHistogramChart.prepareForExit();
+                    wordHistogramChart.prepareForExit();
                     domainIconsGraph.prepareForExit();
                     primaryStage.close();
                 } else {

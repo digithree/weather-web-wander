@@ -3,7 +3,6 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
 package weatherwebwander;
 
 import java.util.ArrayList;
@@ -24,16 +23,16 @@ import weatherwebwander.gradedstring.GradedStringReverseOrderComparitor;
  *
  * @author simonkenny
  */
-public class KeywordHistogramChart {
+public class URLWordHistogramChart {
     
-    private final KeywordMatching keywordMatching;
+    private BestURLLearner bestURLLearner;
     
     BarChart<Number,String> barChart;
     XYChart.Series dataSeries;
     
     
-    public KeywordHistogramChart(Pane pane, KeywordMatching keywordMatching) {
-        this.keywordMatching = keywordMatching;
+    public URLWordHistogramChart(Pane pane, BestURLLearner bestURLLearner) {
+        this.bestURLLearner = bestURLLearner;
         // setup
         dataSeries = new XYChart.Series();
         dataSeries.setName("Terms");
@@ -67,22 +66,12 @@ public class KeywordHistogramChart {
         runMainThread = false;
     }
     
-    
     private final int TOP_DISPLAY_TERMS_AMOUNT = 5;
     private void createDataset() {
-        String []keywords = keywordMatching.getKeywords();
-        String []acronyms = keywordMatching.getAcronyms();
-        int []keywordMatchCount = keywordMatching.getKeywordMatchCount();
-        int []acronymMatchCount = keywordMatching.getAcronymMatchCount();
         // --- sort
         // create combined list
-        List<GradedString> terms = new ArrayList<GradedString>();
-        for( int i = 0 ; i < keywordMatchCount.length ; i++ ) {
-            terms.add(new GradedString(keywords[i],keywordMatchCount[i]));
-        }
-        for( int i = 0 ; i < acronymMatchCount.length ; i++ ) {
-            terms.add(new GradedString(acronyms[i],acronymMatchCount[i]));
-        }
+        List<GradedString> terms = new ArrayList<>();
+        terms.addAll(bestURLLearner.getWords());
         // sort list, keep TOP_DISPLAY_TERMS_AMOUNT
         Collections.sort(terms, new GradedStringReverseOrderComparitor());
         terms = terms.subList(0, terms.size() < TOP_DISPLAY_TERMS_AMOUNT ? terms.size() : TOP_DISPLAY_TERMS_AMOUNT);
@@ -126,11 +115,10 @@ public class KeywordHistogramChart {
         final CategoryAxis yAxis = new CategoryAxis();
         barChart = new BarChart<Number,String>(xAxis,yAxis);
         barChart.setPrefHeight(300);
-        barChart.setTitle("Top "+TOP_DISPLAY_TERMS_AMOUNT+" relevant article keywords");
-        xAxis.setLabel("Count");  
+        barChart.setTitle("Top "+TOP_DISPLAY_TERMS_AMOUNT+" predictive URL words");
+        xAxis.setLabel("Score");  
         xAxis.setTickLabelRotation(90);
-        yAxis.setLabel("Term");        
+        yAxis.setLabel("Word");        
         barChart.getData().addAll(dataSeries);
     }
-    
 }
